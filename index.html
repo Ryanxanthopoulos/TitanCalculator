@@ -242,6 +242,36 @@
             transform: rotate(90deg);
         }
 
+        /* Styling for the new multi-line item format */
+        .material-line-item {
+            display: flex;
+            flex-direction: column; /* Stack items vertically */
+            padding: 0.5rem 0; /* Vertical padding for each item */
+            border-bottom: 1px solid #e2e8f0; /* Separator for each item */
+            margin-bottom: 0.5rem; /* Space between items */
+        }
+        .material-line-item:last-child {
+            border-bottom: none; /* No border for the last item */
+            margin-bottom: 0;
+        }
+        .material-line-item .item-name {
+            font-weight: 600; /* Bold name */
+            color: #2d3748;
+            margin-bottom: 0.2rem; /* Small space after name */
+        }
+        .material-line-item .item-qty-unit {
+            color: #4a5568;
+            font-size: 0.95rem; /* Slightly smaller font for quantity */
+            margin-left: 0.5rem; /* Indent quantity slightly */
+            margin-bottom: 0.2rem;
+        }
+        .material-line-item .item-cost {
+            font-weight: 700; /* Bold cost */
+            color: #007bff; /* A distinct color for cost */
+            text-align: right; /* Align cost to the right */
+            font-size: 1rem;
+        }
+
 
         /* Responsive adjustments for smaller screens */
         @media (max-width: 640px) {
@@ -550,13 +580,13 @@
                         <span class="collapsible-icon">▶</span>
                     </div>
                     <div class="collapsible-content" id="postsContent">
-                        <div class="flex justify-between items-center py-1 border-b border-gray-100">
-                            <span class="font-normal text-gray-700">Calculated Number of Posts:</span>
-                            <span class="font-semibold text-gray-800" id="calculatedNumPostsDisplay">0</span>
+                        <div class="material-line-item">
+                            <div class="item-name">Calculated Number of Posts:</div>
+                            <div class="item-qty-unit" id="calculatedNumPostsDisplay">0</div>
                         </div>
-                        <div class="flex justify-between items-center py-1 border-b border-gray-100">
-                            <span class="font-normal text-gray-700">Calculated Post Length:</span>
-                            <span class="font-semibold text-gray-800" id="calculatedPostLengthDisplay">0mm</span>
+                        <div class="material-line-item">
+                            <div class="item-name">Calculated Post Length:</div>
+                            <div class="item-qty-unit" id="calculatedPostLengthDisplay">0mm</div>
                         </div>
                         <div id="postsMaterials" class="space-y-1"></div>
                         <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
@@ -618,7 +648,20 @@
                         <span class="collapsible-icon">▶</span>
                     </div>
                     <div class="collapsible-content" id="fencePanelsContent">
-                        <div id="fencePanelsInfo" class="space-y-1"></div>
+                        <div class="material-line-item">
+                            <div class="item-name">Number of Panels:</div>
+                            <div class="item-qty-unit" id="displayNumPanelsActual">0</div>
+                        </div>
+                        <div class="material-line-item">
+                            <div class="item-name">Panel Length:</div>
+                            <div class="item-qty-unit" id="displayPanelLengthActual">0mm</div>
+                        </div>
+                        <div class="material-line-item">
+                            <div class="item-name">Total Linear Fence Length:</div>
+                            <div class="item-qty-unit" id="displayFenceLinearLengthActual">0mm</div>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
+                        <div id="fencePanelsMaterials" class="space-y-1"></div>
                         <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                     </div>
                 </div>
@@ -815,10 +858,15 @@
 
         const fencePanelsSection = document.getElementById('fencePanelsSection');
         const fencePanelsInfoDiv = document.getElementById('fencePanelsInfo');
+        const fencePanelsMaterialsDiv = document.getElementById('fencePanelsMaterials'); // New element for panel materials
         const fencePanelsSubtotalSpan = document.getElementById('fencePanelsSubtotal');
-        const displayNumPanels = document.getElementById('displayNumPanels');
+        const displayNumPanels = document.getElementById('displayNumPanels'); // Original display elements
         const displayPanelLength = document.getElementById('displayPanelLength');
         const displayFenceLinearLength = document.getElementById('displayFenceLinearLength');
+        const displayNumPanelsActual = document.getElementById('displayNumPanelsActual'); // New elements for multi-line display
+        const displayPanelLengthActual = document.getElementById('displayPanelLengthActual');
+        const displayFenceLinearLengthActual = document.getElementById('displayFenceLinearLengthActual');
+
         const panelHint = document.getElementById('panelHint');
 
         const powderCoatingSection = document.getElementById('powderCoatingSection');
@@ -1019,7 +1067,7 @@
         }
 
         /**
-         * Helper function to format material output HTML.
+         * Helper function to format material output HTML for the new multi-line format.
          * @param {string} name - Name of the material.
          * @param {number} displayAmount - Quantity or number of lengths.
          * @param {string} unitType - Unit type (e.g., 'pcs', 'x 8000mm lengths').
@@ -1028,10 +1076,10 @@
          */
         function formatLineItem(name, displayAmount, unitType, cost) {
             return `
-                <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
-                    <span class="font-normal text-gray-700">${name}:</span>
-                    <span class="text-gray-600">${displayAmount} ${unitType}</span>
-                    <span class="font-semibold text-gray-800">$${cost.toFixed(2)}</span>
+                <div class="material-line-item">
+                    <div class="item-name">${name}:</div>
+                    <div class="item-qty-unit">${displayAmount} ${unitType}</div>
+                    <div class="item-cost">$${cost.toFixed(2)}</div>
                 </div>
             `;
         }
@@ -1250,7 +1298,8 @@
             postsMaterialsDiv.innerHTML = '';
             slidingGateMaterialsDiv.innerHTML = '';
             pedestrianGateMaterialsDiv.innerHTML = '';
-            fencePanelsInfoDiv.innerHTML = '';
+            // fencePanelsInfoDiv.innerHTML = ''; // This now contains fixed structure for panel info
+            fencePanelsMaterialsDiv.innerHTML = ''; // Clear only the dynamic material list
             powderCoatingDetailsDiv.innerHTML = '';
             slidingGateFittingsMaterialsDiv.innerHTML = '';
             gateMotorsMaterialsDiv.innerHTML = '';
@@ -1268,11 +1317,14 @@
 
 
             // Reset panel info display
-            displayNumPanels.classList.add('hidden');
+            displayNumPanels.classList.add('hidden'); // Original hidden ones
             displayPanelLength.classList.add('hidden');
             displayFenceLinearLength.classList.add('hidden');
             panelHint.classList.remove('hidden');
             panelHint.textContent = "Enter overall boundary length to calculate panels.";
+            displayNumPanelsActual.textContent = '0'; // Clear new display elements too
+            displayPanelLengthActual.textContent = '0mm';
+            displayFenceLinearLengthActual.textContent = '0mm';
 
 
             // Read dynamic profit margins and installation costs from inputs
@@ -1954,7 +2006,6 @@
             if (quoteSections.posts.materialCost > 0 || quoteSections.posts.numCalculated > 0) {
                 postsSection.classList.remove('hidden');
                 calculatedNumPostsDisplay.textContent = quoteSections.posts.numCalculated;
-                // Update calculatedPostLengthDisplay here, as it's now the primary display location
                 calculatedPostLengthDisplay.textContent = `${quoteSections.posts.length.toFixed(0)}mm`;
                 postsMaterialsDiv.innerHTML = '';
                 quoteSections.posts.materialsBreakdown.forEach(mat => {
@@ -1997,7 +2048,8 @@
                 // Then hardware
                 if (quoteSections.gateMotors.hardwareBreakdown.length > 0) {
                      if (quoteSections.gateMotors.motorBreakdown.length > 0) {
-                         gateMotorsMaterialsDiv.innerHTML += `<div class="font-semibold text-gray-700 mt-2">Add-ons:</div>`;
+                         // Add a separator or sub-heading for add-ons if needed, but not part of formatLineItem
+                         gateMotorsMaterialsDiv.innerHTML += `<div class="font-semibold text-gray-700 mt-2">Motor Add-ons:</div>`;
                      }
                     quoteSections.gateMotors.hardwareBreakdown.forEach(mat => {
                         gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
@@ -2023,23 +2075,14 @@
                 fencePanelsSection.classList.remove('hidden');
                 const panelDisplayStringForResults = getPanelDisplayString(quoteSections.fencePanels.individualPanelLengths, IDEAL_PANEL_2_4M);
 
-                fencePanelsInfoDiv.innerHTML = `
-                    <div class="flex justify-between items-center py-1 border-b border-gray-100">
-                        <span class="font-normal text-gray-700">Number of Panels:</span>
-                        <span class="text-gray-600 font-semibold">${quoteSections.fencePanels.numPanels}</span>
-                    </div>
-                    <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
-                        <span class="font-normal text-gray-700">Panel Length:</span>
-                        <span class="text-gray-600 font-semibold">${panelDisplayStringForResults}</span>
-                    </div>
-                    <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
-                        <span class="font-normal text-gray-700">Total Linear Fence Length:</span>
-                        <span class="text-gray-600 font-semibold">${quoteSections.fencePanels.totalLength.toFixed(0)}mm</span>
-                    </div>
-                    <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
-                `;
+                // Update the new display elements
+                displayNumPanelsActual.textContent = quoteSections.fencePanels.numPanels;
+                displayPanelLengthActual.textContent = panelDisplayStringForResults;
+                displayFenceLinearLengthActual.textContent = `${quoteSections.fencePanels.totalLength.toFixed(0)}mm`;
+
+                fencePanelsMaterialsDiv.innerHTML = ''; // Clear only the material list for panels
                 quoteSections.fencePanels.materialsBreakdown.forEach(mat => {
-                    fencePanelsInfoDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    fencePanelsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 fencePanelsSubtotalSpan.textContent = `$${quoteSections.fencePanels.materialCost.toFixed(2)}`;
                 hasContentToDisplay = true;
@@ -2061,7 +2104,7 @@
             // Fabrication Costs Section Display
             if (quoteSections.totalFabricationCost > 0) {
                 fabricationCostsSection.classList.remove('hidden');
-                fabricationDetailsDiv.innerHTML = formatLineItem("Fabrication Cost", currentFabricationCosts.FABRICATION_DAYS_PER_JOB, 'days @ $' + currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2) + '/day', quoteSections.totalFabricationCost);
+                fabricationDetailsDiv.innerHTML = formatLineItem("Fabrication Cost (per day)", currentFabricationCosts.FABRICATION_DAYS_PER_JOB, 'days @ $' + currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2) + '/day', quoteSections.totalFabricationCost);
                 fabricationTotalSpan.textContent = `$${quoteSections.totalFabricationCost.toFixed(2)}`;
                 hasContentToDisplay = true;
             }
@@ -2072,17 +2115,17 @@
                 installationCostsSection.classList.remove('hidden');
                 installationDetailsDiv.innerHTML = '';
                 if (overallBoundaryLength > 0) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Post Installation (per job)", 1, 'job', currentInstallationCosts.INSTALL_POSTS_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Post Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_POSTS_FIXED);
                 }
                 if (quoteSections.slidingGate.present) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Sliding Gate Installation", 1, 'job', currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Sliding Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED);
                 }
                 if (quoteSections.pedestrianGate.present) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Pedestrian Gate Installation", 1, 'job', currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Pedestrian Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED);
                 }
                 if (quoteSections.fencePanels.present) {
                     const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
-                    installationDetailsDiv.innerHTML += formatLineItem("Panel Installation", totalPanelsLengthMeters.toFixed(2), 'meters', totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
+                    installationDetailsDiv.innerHTML += formatLineItem("Panel Installation (per meter)", totalPanelsLengthMeters.toFixed(2), 'meters', totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
                 }
                 installationTotalSpan.textContent = `$${quoteSections.totalInstallationCost.toFixed(2)}`;
                 hasContentToDisplay = true;
