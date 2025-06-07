@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fencing Quote Calculator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for a cleaner look */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #eef2f6; /* Lighter blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top to prevent vertical centering on very short content */
+            min-height: 100vh; /* Ensure it takes at least full viewport height */
+            padding: 2rem 1rem; /* Add padding for smaller screens */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+        }
+        .container {
+            max-width: 900px;
+            width: 100%; /* Ensure it takes full width on small screens */
+            margin: 0 auto; /* Center horizontally */
+            padding: 2rem; /* Increased padding */
+            background-color: #ffffff;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); /* Softer, larger shadow */
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 2.25rem; /* Larger heading */
+            font-weight: 700;
+            color: #1a202c; /* Darker text for headings */
+            margin-bottom: 2rem; /* More space below heading */
+        }
+        .input-group {
+            margin-bottom: 1.5rem; /* More space between input groups */
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.6rem; /* Slightly more space below label */
+            font-weight: 600;
+            color: #2d3748; /* Darker label text */
+            font-size: 0.95rem; /* Slightly smaller label font */
+        }
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 0.85rem 1rem; /* Increased padding for inputs */
+            border: 1px solid #cbd5e0; /* Softer border color */
+            border-radius: 10px; /* Slightly more rounded inputs */
+            font-size: 1rem;
+            color: #2d3748;
+            background-color: #ffffff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-group input[type="number"]:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #4299e1; /* Brighter blue on focus */
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); /* Subtle blue glow */
+        }
+        .radio-group label {
+            margin-right: 2rem; /* More space between radio options */
+            font-weight: 500; /* Lighter font weight */
+        }
+        .radio-group input[type="radio"] {
+            transform: scale(1.1); /* Slightly larger radio buttons */
+        }
+
+        .results-section {
+            background-color: #f8fafc; /* Very light background for results */
+            padding: 2rem; /* Increased padding */
+            border-radius: 12px;
+            border: 1px solid #e2e8f0; /* Soft border */
+            margin-top: 2.5rem; /* More space above results */
+        }
+        .results-section h2 {
+            font-size: 1.75rem; /* Larger results heading */
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #2c5282; /* Deep blue for results heading */
+        }
+        .results-section h3 {
+            font-size: 1.35rem; /* Slightly larger subheadings */
+            font-weight: 600;
+            margin-top: 2rem; /* More space above subheadings */
+            margin-bottom: 1rem;
+            color: #4a5568; /* Slightly lighter subheading color */
+            border-bottom: 1px solid #ebf4ff; /* Lighter border below subheadings */
+            padding-bottom: 0.75rem;
+        }
+        .results-section .subtotal-line {
+            font-weight: 600;
+            text-align: right;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed #e2e8f0; /* Softer dashed line */
+            color: #2d3748;
+        }
+        .results-section .subtotal-line span {
+            font-weight: 700;
+        }
+        .error-message {
+            background-color: #ffeaea; /* Softer red background */
+            color: #e53e3e; /* Brighter red text */
+            padding: 1.25rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #fbd3d3;
+            font-weight: 500;
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 2.5rem; /* More padding */
+            border-radius: 16px; /* More rounded */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); /* More prominent shadow */
+            z-index: 1000;
+            display: none;
+            max-width: 450px; /* Slightly wider */
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .message-box h3 {
+            font-size: 1.5rem; /* Larger message title */
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1a202c;
+        }
+        .message-box p {
+            margin-bottom: 2rem; /* More space below message */
+            color: #4a5568;
+            line-height: 1.5;
+        }
+        .message-box button {
+            background-color: #4299e1; /* Tailwind blue-500 */
+            color: white;
+            padding: 0.8rem 2rem; /* Larger button */
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s ease-in-out;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+        .message-box button:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+            transform: translateY(-1px); /* Slight lift effect */
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
+            z-index: 999;
+            display: none;
+        }
+        #fenceLayoutCanvas {
+            width: 100%; /* Ensure responsiveness */
+            height: 150px; /* Fixed height for consistency */
+            background-color: #fdfefe; /* White background for drawing area */
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 1rem;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .toggle-btn {
+            background-color: #edf2f7; /* Lighter background for toggle */
+            color: #2d3748;
+            padding: 1rem 1.25rem; /* Larger padding */
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%; /* Ensure full width */
+            border: 1px solid #d1d5db; /* Soft border */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .toggle-btn:hover {
+            background-color: #e2e8f0; /* Slightly darker on hover */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+        .toggle-icon {
+            transition: transform 0.2s ease-in-out;
+        }
+        .toggle-icon.rotate {
+            transform: rotate(90deg);
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            .container {
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                padding: 1rem;
+            }
+            h1 {
+                font-size: 1.75rem;
+                margin-bottom: 1.5rem;
+            }
+            .results-section h2 {
+                font-size: 1.4rem;
+            }
+            .results-section h3 {
+                font-size: 1.1rem;
+            }
+            .message-box {
+                max-width: 90%;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Fencing Quote Calculator</h1>
+
+        <!-- Error Message Display -->
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <form id="quoteForm" class="space-y-6">
+            <!-- Overall Boundary Length Input -->
+            <div class="input-group">
+                <label for="overallBoundaryLength">Overall Boundary Length (mm):</label>
+                <input type="number" id="overallBoundaryLength" name="overallBoundaryLength" class="mt-1 block w-full" placeholder="e.g., 20000" min="0">
+            </div>
+
+            <!-- Standard Fence Height Input -->
+            <div class="input-group">
+                <label for="fenceHeight">Fence Height (mm):</label>
+                <input type="number" id="fenceHeight" name="fenceHeight" class="mt-1 block w-full" placeholder="e.g., 1800" min="0">
+            </div>
+
+            <!-- Post Size Input -->
+            <div class="input-group">
+                <label for="postSize">Post Size:</label>
+                <select id="postSize" name="postSize" class="mt-1 block w-full">
+                    <option value="65">65mm x 65mm</option>
+                    <option value="89">89mm x 89mm</option>
+                </select>
+            </div>
+
+            <!-- Post Length Info (Now auto-calculated, no input) -->
+            <!-- This section is now hidden, the calculated length will only be displayed in results -->
+            <div class="input-group hidden">
+                <label>Calculated Post Length (mm):</label>
+                <p id="displayPostLength" class="text-gray-700 mt-1"><span class="font-semibold">0mm</span> (Fence Height + 600mm)</p>
+            </div>
+
+            <!-- Sliding Gate Input -->
+            <div class="input-group">
+                <label>Sliding Gate?</label>
+                <div class="radio-group flex items-center mt-1">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="slidingGate" value="yes" id="slidingGateYes" class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">Yes</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="slidingGate" value="no" id="slidingGateNo" class="form-radio text-blue-600" checked>
+                        <span class="ml-2 text-gray-700">No</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="slidingGateInputs" class="hidden pl-6 border-l-2 border-blue-200 ml-2 space-y-4">
+                <div class="input-group">
+                    <label for="slidingGateLength">Sliding Gate Length (mm):</label>
+                    <input type="number" id="slidingGateLength" name="slidingGateLength" class="mt-1 block w-full" placeholder="e.g., 4000">
+                </div>
+            </div>
+
+            <!-- Gate Motor Input -->
+            <div class="input-group">
+                <label>Gate Motor?</label>
+                <div class="radio-group flex items-center mt-1">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="gateMotor" value="yes" id="gateMotorYes" class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">Yes</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="gateMotor" value="no" id="gateMotorNo" class="form-radio text-blue-600" checked>
+                        <span class="ml-2 text-gray-700">No</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="motorInputs" class="hidden pl-6 border-l-2 border-blue-200 ml-2 space-y-4">
+                <div class="input-group">
+                    <label for="motorType">Motor Type:</label>
+                    <select id="motorType" name="motorType" class="mt-1 block w-full">
+                        <option value="">Select Motor</option>
+                        <option value="Livi Split Pack">Livi Split Pack</option>
+                        <option value="Livi 24V">Livi 24V</option>
+                        <option value="Rev 24V">Rev 24V</option>
+                        <option value="30W Solar Kit">30W Solar Kit</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Motor Add-ons:</label>
+                    <div class="flex flex-col space-y-2">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" name="batteryBackup" id="batteryBackup" class="form-checkbox text-blue-600">
+                            <span class="ml-2 text-gray-700">Battery backup</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" name="antenna" id="antenna" class="form-checkbox text-blue-600">
+                            <span class="ml-2 text-gray-700">Antenna</span>
+                        </label>
+                        <div class="flex items-center space-x-2">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" name="ziggyRemote" id="ziggyRemote" class="form-checkbox text-blue-600">
+                                <span class="ml-2 text-gray-700">Ziggy Remote</span>
+                            </label>
+                            <input type="number" id="ziggyRemoteQty" name="ziggyRemoteQty" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="Qty" min="1" value="1" disabled>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Pedestrian Gate Input -->
+            <div class="input-group">
+                <label>Pedestrian Gate?</label>
+                <div class="radio-group flex items-center mt-1">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="pedestrianGate" value="yes" id="pedestrianGateYes" class="form-radio text-blue-600">
+                        <span class="ml-2 text-gray-700">Yes</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="pedestrianGate" value="no" id="pedestrianGateNo" class="form-radio text-blue-600" checked>
+                        <span class="ml-2 text-gray-700">No</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="pedestrianGateInputs" class="hidden pl-6 border-l-2 border-blue-200 ml-2 space-y-4">
+                <div class="input-group">
+                    <label for="pedestrianGateWidth">Pedestrian Gate Width (mm):</label>
+                    <input type="number" id="pedestrianGateWidth" name="pedestrianGateWidth" class="mt-1 block w-full" placeholder="e.g., 900">
+                </div>
+                <div class="input-group">
+                    <label for="hingeType">Hinge Type:</label>
+                    <select id="hingeType" name="hingeType" class="mt-1 block w-full">
+                        <option value="Adjustable Hinges">Adjustable Hinges</option>
+                        <option value="Truclose Hinges">Truclose Hinges</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="latchType">Latch Type:</label>
+                    <select id="latchType" name="latchType" class="mt-1 block w-full">
+                        <option value="D latch">D latch</option>
+                        <option value="Lokk Latch Deluxe">Lokk Latch Deluxe</option>
+                        <option value="001 Deadlock">001 Deadlock</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Fence Panels Info -->
+            <div class="input-group">
+                <label>Fence Panel Details (Calculated from overall boundary):</label>
+                <div id="calculatedPanelsInfo" class="space-y-2 mt-1 text-gray-700">
+                    <p id="displayNumPanels" class="hidden">Number of Panels: <span class="font-semibold">0</span></p>
+                    <p id="displayPanelLength" class="hidden">Panel Length: <span class="font-semibold">0mm</span></p>
+                    <p id="displayFenceLinearLength" class="hidden">Total Linear Fence Length: <span class="font-semibold">0mm</span></p>
+                    <p class="text-sm text-gray-500 mt-2" id="panelHint">Enter overall boundary length to calculate panels.</p>
+                </div>
+            </div>
+
+            <!-- Advanced Settings Section -->
+            <div class="bg-gray-100 p-4 rounded-lg shadow-inner mt-6">
+                <button type="button" class="toggle-btn" id="toggleAdvancedSettings">
+                    <span>Advanced Settings</span>
+                    <span class="toggle-icon">▶</span>
+                </button>
+                <div id="advancedSettingsContent" class="hidden mt-4 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3">Profit Margins (%)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label for="profitSlidingGateMaterial">Sliding Gate Material:</label>
+                            <input type="number" id="profitSlidingGateMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitPedestrianGateMaterial">Pedestrian Gate Material:</label>
+                            <input type="number" id="profitPedestrianGateMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitPanelsMaterial">Panels:</label>
+                            <input type="number" id="profitPanelsMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitPostsCapsBracketsMaterial">Posts, Caps, & Brackets:</label>
+                            <input type="number" id="profitPostsCapsBracketsMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitPowderCoating">Powder Coating:</label>
+                            <input type="number" id="profitPowderCoating" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitGateMotors">Gate Motors:</label>
+                            <input type="number" id="profitGateMotors" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="profitGateMotorHardware">Gate Motor Hardware:</label>
+                            <input type="number" id="profitGateMotorHardware" class="mt-1 block w-full" min="0" max="100" step="1">
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Installation Costs ($)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label for="installPostsFixed">Posts (per job):</label>
+                            <input type="number" id="installPostsFixed" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="installSlidingGateFixed">Sliding Gates (fixed):</label>
+                            <input type="number" id="installSlidingGateFixed" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="installPedestrianGateFixed">Pedestrian Gates (fixed):</label>
+                            <input type="number" id="installPedestrianGateFixed" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="installPanelsPerMeter">Panels (per meter):</label>
+                            <input type="number" id="installPanelsPerMeter" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Fabrication Costs ($)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label for="fabricationCostPerDay">Fabrication Cost per Day:</label>
+                            <input type="number" id="fabricationCostPerDay" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label for="fabricationDaysPerJob">Standard Fabrication Days per Job:</label>
+                            <input type="number" id="fabricationDaysPerJob" class="mt-1 block w-full" min="0" step="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 ease-in-out shadow-md">
+                Calculate Quote
+            </button>
+        </form>
+
+        <!-- Results Display Section -->
+        <div id="results" class="results-section hidden">
+            <h2 class="text-center">Material Requirements & Costs</h2>
+            <div id="materialDetails" class="mt-4 text-gray-700 space-y-2">
+
+                <!-- Layout Overview Section -->
+                <h3 class="mt-6">Layout Overview (Bird's Eye View)</h3>
+                <div class="flex justify-center items-center py-4">
+                    <canvas id="fenceLayoutCanvas" width="800" height="150" class="border border-gray-300 bg-white rounded-md"></canvas>
+                </div>
+                <p class="text-sm text-gray-500 text-center mb-4">Scale: Not to scale, represents relative lengths.</p>
+
+                <!-- Posts Section -->
+                <div id="postsSection" class="hidden">
+                    <h3>Posts (Material Only)</h3>
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                        <span class="font-normal text-gray-700">Calculated Number of Posts:</span>
+                        <span class="font-semibold text-gray-800" id="calculatedNumPostsDisplay">0</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                        <span class="font-normal text-gray-700">Calculated Post Length:</span>
+                        <span class="font-semibold text-gray-800" id="calculatedPostLengthDisplay">0mm</span>
+                    </div>
+                    <div id="postsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Sliding Gate Section -->
+                <div id="slidingGateSection" class="hidden">
+                    <h3>Sliding Gate (Material Only)</h3>
+                    <div id="slidingGateMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate: <span id="slidingGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Sliding Gate Fittings Section -->
+                <div id="slidingGateFittingsSection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h3>Sliding Gate Fittings (Material Only)</h3>
+                    <div id="slidingGateFittingsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate Fittings: <span id="slidingGateFittingsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Gate Motors & Accessories Section -->
+                <div id="gateMotorsSection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h3>Gate Motors & Accessories (Material Only)</h3>
+                    <div id="gateMotorsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Gate Motors & Accessories: <span id="gateMotorsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Pedestrian Gate Section -->
+                <div id="pedestrianGateSection" class="hidden">
+                    <h3>Pedestrian Gate (Material Only)</h3>
+                    <div id="pedestrianGateMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Pedestrian Gate: <span id="pedestrianGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Fence Panels Section -->
+                <div id="fencePanelsSection">
+                    <h3>Fence Panels (Material Only)</h3>
+                    <div id="fencePanelsInfo" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                </div>
+
+                <!-- Powder Coating Section -->
+                <div id="powderCoatingSection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h2 class="text-center text-blue-700">Powder Coating Costs</h2>
+                    <div id="powderCoatingDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Powder coating breakdown will be inserted here -->
+                    </div>
+                    <p class="subtotal-line flex justify-between text-blue-700">Total Powder Coating Cost: <span id="powderCoatingTotal" class="font-semibold text-blue-800 text-lg">$0.00</span></p>
+                </div>
+
+                <!-- Fabrication Costs Section -->
+                <div id="fabricationCostsSection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h2 class="text-center text-orange-700">Fabrication Costs</h2>
+                    <div id="fabricationDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Fabrication breakdown will be inserted here -->
+                    </div>
+                    <p class="subtotal-line flex justify-between text-orange-700">Total Fabrication Cost: <span id="fabricationTotal" class="font-semibold text-orange-800 text-lg">$0.00</span></p>
+                </div>
+
+                <!-- Installation Costs Section -->
+                <div id="installationCostsSection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h2 class="text-center text-green-700">Installation Costs</h2>
+                    <div id="installationDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Installation breakdown will be inserted here -->
+                    </div>
+                    <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
+                </div>
+
+                <!-- Profit Summary -->
+                <div id="profitSummarySection" class="hidden mt-8 pt-4 border-t border-gray-200">
+                    <h2 class="text-center text-purple-700">Profit Summary</h2>
+                    <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
+                </div>
+
+            </div>
+            <p class="text-right text-lg font-bold mt-6 text-gray-800">Total Estimated Cost: <span id="totalCost" class="text-blue-600">$0.00</span></p>
+        </div>
+    </div>
+
+    <!-- Message Box for Alerts -->
+    <div id="messageBox" class="message-box">
+        <h3 id="messageBoxTitle"></h3>
+        <p id="messageBoxContent"></p>
+        <button onclick="closeMessageBox()">OK</button>
+    </div>
+    <div id="overlay" class="overlay" onclick="closeMessageBox()"></div>
+
+    <script>
+        // Material price list with their respective stock lengths and costs
+        const materialPriceList = {
+            '100x50 RHS': { pricePerUnit: 81.58, unitLength: 8000 },
+            '40x40 SHS': { pricePerUnit: 35.72, unitLength: 8000 },
+            '50x10 Pickets': { pricePerUnit: 19.72, unitLength: 7320 },
+            'Picket Top': { pricePerUnit: 1.69, unitLength: 1 },
+            '89x89 Post': { pricePerUnit: 97.50, unitLength: 8000 },
+            '65x65 Post': { pricePerUnit: 59.48, unitLength: 8000 },
+            '40x40 Angle': { pricePerUnit: 28.45, unitLength: 6000 },
+            // Gate Hardware Costs
+            'Adjustable Hinges': { pricePerUnit: 18.15, unitLength: 1 }, // each
+            'Truclose Hinges': { pricePerUnit: 80.64, unitLength: 1 },    // each
+            'D latch': { pricePerUnit: 6.85, unitLength: 1 },           // each
+            'Lokk Latch Deluxe': { pricePerUnit: 70.25, unitLength: 1 },  // each
+            '001 Deadlock': { pricePerUnit: 138.50, unitLength: 1 },      // each
+            // Fencing Specific Accessories
+            '40x40 Rail Brackets': { pricePerUnit: 2.25, unitLength: 1 },
+            '90x90 Caps': { pricePerUnit: 3.80, unitLength: 1 },
+            '65x65 Caps': { pricePerUnit: 1.25, unitLength: 1 },
+            // Sliding Gate Fittings
+            'Guide Rollers': { pricePerUnit: 8.15, unitLength: 1 },
+            'Guide Bracket': { pricePerUnit: 8.85, unitLength: 1 },
+            '100x50 Cap': { pricePerUnit: 6.58, unitLength: 1 },
+            'Gate Wheel': { pricePerUnit: 20.16, unitLength: 1 },
+            '50mm Catch': { pricePerUnit: 18.56, unitLength: 1 },
+            'Gate Track': { pricePerUnit: 32.60, unitLength: 3000 }, // Price per 3-meter length
+            // Gate Motors
+            'Livi Split Pack': { pricePerUnit: 859.32, unitLength: 1 },
+            'Livi 24V': { pricePerUnit: 614.24, unitLength: 1 },
+            'Rev 24V': { pricePerUnit: 1043.46, unitLength: 1 },
+            '30W Solar Kit': { pricePerUnit: 969.70, unitLength: 1 },
+            // Motor Accessories
+            'Gear rack': { pricePerUnit: 23.85, unitLength: 1000 }, // Price per 1-meter length (1000mm)
+            'Battery backup': { pricePerUnit: 68.97, unitLength: 1 },
+            'Antenna': { pricePerUnit: 42.55, unitLength: 1 },
+            'Ziggy Remote': { pricePerUnit: 47.65, unitLength: 1 },
+        };
+
+        // Powder Coating Rates
+        const powderCoatingRates = {
+            '65x65 Post': 5.50,   // per meter
+            '89x89 Post': 7.70,   // per meter (assuming 90x90 means 89x89)
+            'Panel_Gate_Area': 55.00, // per square meter
+            'Per_Piece_Powder_Coat': 2.00 // General rate for individual items like caps, rail brackets, hinges, latches
+        };
+
+        // Default Installation Rates - now used to populate inputs
+        const DEFAULT_INSTALL_POSTS_FIXED = 1250;
+        const DEFAULT_INSTALL_SLIDING_GATE_FIXED = 1750;
+        const DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED = 750;
+        const DEFAULT_INSTALL_PANELS_PER_METER = 65;
+
+        // Default Fabrication Rates
+        const DEFAULT_FABRICATION_COST_PER_DAY = 1250;
+        const DEFAULT_FABRICATION_DAYS_PER_JOB = 2;
+
+
+        // Default Profit Margins - now used to populate inputs
+        const DEFAULT_PROFIT_SLIDING_GATE_MATERIAL = 0.55; // 55%
+        const DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL = 0.55; // 55%
+        const DEFAULT_PROFIT_PANELS_MATERIAL = 0.50; // 50%
+        const DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL = 0.35; // 35%
+        const DEFAULT_PROFIT_POWDER_COATING = 0.25; // 25%
+        const DEFAULT_PROFIT_GATE_MOTORS = 0.55; // 55%
+        const DEFAULT_PROFIT_GATE_MOTOR_HARDWARE = 0.70; // 70%
+
+        // Constants for panel optimization
+        const IDEAL_PANEL_2_4M = 2400; // 2.4 meters
+
+        // Get references to DOM elements
+        const overallBoundaryLengthInput = document.getElementById('overallBoundaryLength');
+        const fenceHeightInput = document.getElementById('fenceHeight'); // Global fence height input
+
+        const slidingGateYes = document.getElementById('slidingGateYes');
+        const slidingGateNo = document.getElementById('slidingGateNo');
+        const slidingGateInputs = document.getElementById('slidingGateInputs');
+        const slidingGateLengthInput = document.getElementById('slidingGateLength');
+
+        const gateMotorYes = document.getElementById('gateMotorYes');
+        const gateMotorNo = document.getElementById('gateMotorNo');
+        const motorInputs = document.getElementById('motorInputs');
+        const motorTypeSelect = document.getElementById('motorType');
+        const batteryBackupCheckbox = document.getElementById('batteryBackup');
+        const antennaCheckbox = document.getElementById('antenna');
+        const ziggyRemoteCheckbox = document.getElementById('ziggyRemote');
+        const ziggyRemoteQtyInput = document.getElementById('ziggyRemoteQty');
+
+
+        const pedestrianGateYes = document.getElementById('pedestrianGateYes');
+        const pedestrianGateNo = document.getElementById('pedestrianGateNo');
+        const pedestrianGateInputs = document.getElementById('pedestrianGateInputs');
+        const pedestrianGateWidthInput = document.getElementById('pedestrianGateWidth');
+        const hingeTypeSelect = document.getElementById('hingeType');
+        const latchTypeSelect = document.getElementById('latchType');
+
+        const quoteForm = document.getElementById('quoteForm');
+        const resultsDiv = document.getElementById('results');
+        const materialDetailsDiv = document.getElementById('materialDetails');
+        const totalCostSpan = document.getElementById('totalCost');
+        const errorMessageDiv = document.getElementById('errorMessage');
+
+        const postsSection = document.getElementById('postsSection');
+        const postsMaterialsDiv = document.getElementById('postsMaterials');
+        const calculatedNumPostsDisplay = document.getElementById('calculatedNumPostsDisplay');
+        const calculatedPostLengthDisplay = document.getElementById('calculatedPostLengthDisplay');
+        const postsSubtotalSpan = document.getElementById('postsSubtotal');
+
+        const slidingGateSection = document.getElementById('slidingGateSection');
+        const slidingGateMaterialsDiv = document.getElementById('slidingGateMaterials');
+        const slidingGateSubtotalSpan = document.getElementById('slidingGateSubtotal');
+
+        const slidingGateFittingsSection = document.getElementById('slidingGateFittingsSection');
+        const slidingGateFittingsMaterialsDiv = document.getElementById('slidingGateFittingsMaterials');
+        const slidingGateFittingsSubtotalSpan = document.getElementById('slidingGateFittingsSubtotal');
+
+        const gateMotorsSection = document.getElementById('gateMotorsSection');
+        const gateMotorsMaterialsDiv = document.getElementById('gateMotorsMaterials');
+        const gateMotorsSubtotalSpan = document.getElementById('gateMotorsSubtotal');
+
+        const pedestrianGateSection = document.getElementById('pedestrianGateSection');
+        const pedestrianGateMaterialsDiv = document.getElementById('pedestrianGateMaterials');
+        const pedestrianGateSubtotalSpan = document.getElementById('pedestrianGateSubtotal');
+
+        const fencePanelsSection = document.getElementById('fencePanelsSection');
+        const fencePanelsInfoDiv = document.getElementById('fencePanelsInfo');
+        const fencePanelsSubtotalSpan = document.getElementById('fencePanelsSubtotal');
+        const displayNumPanels = document.getElementById('displayNumPanels');
+        const displayPanelLength = document.getElementById('displayPanelLength');
+        const displayFenceLinearLength = document.getElementById('displayFenceLinearLength');
+        const panelHint = document.getElementById('panelHint');
+
+        const powderCoatingSection = document.getElementById('powderCoatingSection');
+        const powderCoatingDetailsDiv = document.getElementById('powderCoatingDetails');
+        const powderCoatingTotalSpan = document.getElementById('powderCoatingTotal');
+
+        // Installation and Profit display elements
+        const installationCostsSection = document.getElementById('installationCostsSection');
+        const installationDetailsDiv = document.getElementById('installationDetails');
+        const installationTotalSpan = document.getElementById('installationTotal');
+        const profitSummarySection = document.getElementById('profitSummarySection');
+        const totalProfitDisplay = document.getElementById('totalProfitDisplay');
+
+        // Fabrication display elements
+        const fabricationCostsSection = document.getElementById('fabricationCostsSection');
+        const fabricationDetailsDiv = document.getElementById('fabricationDetails');
+        const fabricationTotalSpan = document.getElementById('fabricationTotal');
+
+
+        // Advanced Settings UI elements
+        const toggleAdvancedSettingsBtn = document.getElementById('toggleAdvancedSettings');
+        const advancedSettingsContent = document.getElementById('advancedSettingsContent');
+        const toggleIcon = toggleAdvancedSettingsBtn.querySelector('.toggle-icon');
+
+        // Input fields for dynamic rates and margins
+        const profitSlidingGateMaterialInput = document.getElementById('profitSlidingGateMaterial');
+        const profitPedestrianGateMaterialInput = document.getElementById('profitPedestrianGateMaterial');
+        const profitPanelsMaterialInput = document.getElementById('profitPanelsMaterial');
+        const profitPostsCapsBracketsMaterialInput = document.getElementById('profitPostsCapsBracketsMaterial');
+        const profitPowderCoatingInput = document.getElementById('profitPowderCoating');
+        const profitGateMotorsInput = document.getElementById('profitGateMotors');
+        const profitGateMotorHardwareInput = document.getElementById('profitGateMotorHardware');
+
+        const installPostsFixedInput = document.getElementById('installPostsFixed');
+        const installSlidingGateFixedInput = document.getElementById('installSlidingGateFixed');
+        const installPedestrianGateFixedInput = document.getElementById('installPedestrianGateFixed');
+        const installPanelsPerMeterInput = document.getElementById('installPanelsPerMeter');
+
+        // Fabrication input fields
+        const fabricationCostPerDayInput = document.getElementById('fabricationCostPerDay');
+        const fabricationDaysPerJobInput = document.getElementById('fabricationDaysPerJob');
+
+
+        const fenceLayoutCanvas = document.getElementById('fenceLayoutCanvas');
+        const ctx = fenceLayoutCanvas.getContext('2d');
+
+
+        const messageBox = document.getElementById('messageBox');
+        const messageBoxTitle = document.getElementById('messageBoxTitle');
+        const messageBoxContent = document.getElementById('messageBoxContent');
+        const overlay = document.getElementById('overlay');
+
+        /**
+         * Displays a custom message box instead of using alert().
+         * @param {string} title - The title of the message box.
+         * @param {string} message - The content message.
+         */
+        function showMessageBox(title, message) {
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = message;
+            messageBox.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+
+        /**
+         * Closes the custom message box.
+         */
+        function closeMessageBox() {
+            messageBox.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        /**
+         * Toggles the visibility of input fields based on radio button selection.
+         * @param {HTMLElement} radioYes - The 'Yes' radio button element.
+         * @param {HTMLElement} radioNo - The 'No' radio button element.
+         * @param {HTMLElement} inputContainer - The container holding the related input fields.
+         */
+        function toggleInputs(radioYes, radioNo, inputContainer) {
+            if (radioYes.checked) {
+                inputContainer.classList.remove('hidden');
+            } else {
+                inputContainer.classList.add('hidden');
+                // Clear inputs when hidden
+                Array.from(inputContainer.querySelectorAll('input[type="number"], select, input[type="checkbox"]')).forEach(input => {
+                    if (input.type === 'number') input.value = '';
+                    else if (input.tagName === 'SELECT') {
+                        input.selectedIndex = 0;
+                    } else if (input.type === 'checkbox') {
+                        input.checked = false;
+                    }
+                });
+                // Specifically handle ziggyRemoteQty input if it becomes disabled
+                if (inputContainer.contains(ziggyRemoteQtyInput)) {
+                     ziggyRemoteQtyInput.disabled = true;
+                     ziggyRemoteQtyInput.value = 1;
+                }
+            }
+        }
+
+        // Add event listeners for radio buttons to toggle input visibility
+        slidingGateYes.addEventListener('change', () => toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs));
+        slidingGateNo.addEventListener('change', () => toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs));
+        pedestrianGateYes.addEventListener('change', () => toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs));
+        pedestrianGateNo.addEventListener('change', () => toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs));
+
+        // Add event listeners for Gate Motor radio buttons and Ziggy Remote checkbox
+        gateMotorYes.addEventListener('change', () => toggleInputs(gateMotorYes, gateMotorNo, motorInputs));
+        gateMotorNo.addEventListener('change', () => toggleInputs(gateMotorYes, gateMotorNo, motorInputs));
+
+        ziggyRemoteCheckbox.addEventListener('change', function() {
+            ziggyRemoteQtyInput.disabled = !this.checked;
+            if (!this.checked) {
+                ziggyRemoteQtyInput.value = 1; // Reset quantity if unchecked
+            }
+        });
+
+        // Toggle Advanced Settings visibility
+        toggleAdvancedSettingsBtn.addEventListener('click', () => {
+            advancedSettingsContent.classList.toggle('hidden');
+            toggleIcon.classList.toggle('rotate');
+        });
+
+
+        // Live update for auto-calculated post length
+        fenceHeightInput.addEventListener('input', updateCalculatedPostLength);
+
+        function updateCalculatedPostLength() {
+            const fenceHeight = parseFloat(fenceHeightInput.value) || 0;
+            const calculatedLength = fenceHeight + 600;
+            // No longer updating displayPostLength, as that element is now hidden
+            // calculatedPostLengthDisplay.textContent = `${calculatedLength.toFixed(0)}mm`;
+            // document.getElementById('displayPostLength').querySelector('span').textContent = `${calculatedLength.toFixed(0)}mm`;
+        }
+
+        // Live update for fence panel info based on boundary and gate lengths
+        overallBoundaryLengthInput.addEventListener('input', updateFencePanelInfo);
+        slidingGateLengthInput.addEventListener('input', updateFencePanelInfo);
+        pedestrianGateWidthInput.addEventListener('input', updateFencePanelInfo);
+        slidingGateYes.addEventListener('change', updateFencePanelInfo);
+        slidingGateNo.addEventListener('change', updateFencePanelInfo);
+        pedestrianGateYes.addEventListener('change', updateFencePanelInfo);
+        pedestrianGateNo.addEventListener('change', updateFencePanelInfo);
+
+        /**
+         * Calculates and updates the displayed fence panel information.
+         * This function is triggered by input changes to provide live feedback.
+         */
+        function updateFencePanelInfo() {
+            const overallBoundaryLength = parseFloat(overallBoundaryLengthInput.value) || 0;
+            let currentLinearFenceLength = overallBoundaryLength;
+            const sGateLength = slidingGateYes.checked ? (parseFloat(slidingGateLengthInput.value) || 0) : 0;
+            const pGateWidth = pedestrianGateYes.checked ? (parseFloat(pedestrianGateWidthInput.value) || 0) : 0;
+
+            currentLinearFenceLength -= (sGateLength + pGateWidth);
+
+            if (currentLinearFenceLength < 0) {
+                displayNumPanels.classList.add('hidden');
+                displayPanelLength.classList.add('hidden');
+                displayFenceLinearLength.classList.add('hidden');
+                panelHint.classList.remove('hidden');
+                panelHint.textContent = "Combined gate lengths exceed overall boundary.";
+                return;
+            }
+
+            if (currentLinearFenceLength > 0 && overallBoundaryLength > 0) {
+                panelHint.classList.add('hidden');
+                displayNumPanels.classList.remove('hidden');
+                displayPanelLength.classList.remove('hidden');
+                displayFenceLinearLength.classList.remove('hidden');
+
+                const { numPanels, individualPanelLengths } = calculatePanelDistribution(currentLinearFenceLength);
+                const panelDisplayString = getPanelDisplayString(individualPanelLengths, IDEAL_PANEL_2_4M);
+
+                displayNumPanels.querySelector('span').textContent = numPanels;
+                displayPanelLength.querySelector('span').textContent = panelDisplayString;
+                displayFenceLinearLength.querySelector('span').textContent = `${currentLinearFenceLength.toFixed(0)}mm`;
+
+            } else {
+                displayNumPanels.classList.add('hidden');
+                displayPanelLength.classList.add('hidden');
+                displayFenceLinearLength.classList.add('hidden');
+                panelHint.classList.remove('hidden');
+                panelHint.textContent = "Enter overall boundary length to calculate panels.";
+            }
+        }
+
+
+        /**
+         * Calculates the number of full stock units needed for a given length of material.
+         * @param {number} requiredLength - The total length of material required in mm.
+         * @param {number} unitLength - The length of one stock unit in mm.
+         * @returns {number} The number of stock units (rounded up).
+         */
+        function calculateUnitsNeeded(requiredLength, unitLength) {
+            if (requiredLength <= 0 || unitLength <= 0) return 0;
+            return Math.ceil(requiredLength / unitLength);
+        }
+
+        /**
+         * Helper function to format material output HTML.
+         * @param {string} name - Name of the material.
+         * @param {number} displayAmount - Quantity or number of lengths.
+         * @param {string} unitType - Unit type (e.g., 'pcs', 'x 8000mm lengths').
+         * @param {number} cost - Cost of the material.
+         * @returns {string} HTML string for the material line item.
+         */
+        function formatLineItem(name, displayAmount, unitType, cost) {
+            return `
+                <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                    <span class="font-normal text-gray-700">${name}:</span>
+                    <span class="text-gray-600">${displayAmount} ${unitType}</span>
+                    <span class="font-semibold text-gray-800">$${cost.toFixed(2)}</span>
+                </div>
+            `;
+        }
+
+        /**
+         * Calculates the individual panel lengths based on total linear fence length,
+         * ensuring all panels are exactly 2.4m, except for the last one which takes the remainder.
+         * @param {number} linearFenceLength - The total length available for fence panels.
+         * @returns {{numPanels: number, averagePanelLength: number, individualPanelLengths: number[]}}
+         */
+        function calculatePanelDistribution(linearFenceLength) {
+            const individualPanelLengths = [];
+            const IDEAL_PANEL_2_4M = 2400;
+
+            if (linearFenceLength <= 0) {
+                return { numPanels: 0, averagePanelLength: 0, individualPanelLengths: [] };
+            }
+
+            // Calculate how many full 2.4m panels fit
+            let numFullPanels = Math.floor(linearFenceLength / IDEAL_PANEL_2_4M);
+            let remainder = linearFenceLength % IDEAL_PANEL_2_4M;
+
+            // Add all full 2.4m panels
+            for (let i = 0; i < numFullPanels; i++) {
+                individualPanelLengths.push(IDEAL_PANAL_2_4M);
+            }
+
+            // If there's a remainder, add it as the last panel
+            if (remainder > 0) {
+                individualPanelLengths.push(remainder);
+            }
+
+            const numPanels = individualPanelLengths.length;
+            const totalLengthCalculated = individualPanelLengths.reduce((sum, length) => sum + length, 0);
+            const averagePanelLength = numPanels > 0 ? (totalLengthCalculated / numPanels) : 0;
+
+            return { numPanels, averagePanelLength, individualPanelLengths };
+        }
+
+        /**
+         * Generates the display string for panel lengths (e.g., "5 x 2400mm, 1 x 600mm").
+         * @param {number[]} panelsArray - An array of individual panel lengths.
+         * @param {number} idealPanelLength - The standard ideal panel length (e.g., 2400).
+         * @returns {string} The formatted string.
+         */
+        function getPanelDisplayString(panelsArray, idealPanelLength) {
+            if (!panelsArray || panelsArray.length === 0) {
+                return 'N/A';
+            }
+
+            let fullPanelCount = 0;
+            let lastPanelLength = 0;
+
+            // Count full ideal panels
+            for (let i = 0; i < panelsArray.length; i++) {
+                // Use a small epsilon for floating point comparison
+                if (Math.abs(panelsArray[i] - idealPanelLength) < 0.1) { // within 0.1mm
+                    fullPanelCount++;
+                }
+            }
+
+            // The last panel is potentially the remainder, check if it's different from ideal
+            if (panelsArray.length > 0 && Math.abs(panelsArray[panelsArray.length - 1] - idealPanelLength) >= 0.1) {
+                lastPanelLength = panelsArray[panelsArray.length - 1];
+            }
+
+            let displayString = '';
+            if (fullPanelCount > 0) {
+                displayString += `${fullPanelCount} x ${idealPanelLength}mm`;
+            }
+            // Add the last panel only if it's a remainder and different from the ideal panel length
+            if (lastPanelLength > 0) {
+                if (displayString !== '') {
+                    displayString += `, `;
+                }
+                displayString += `1 x ${lastPanelLength.toFixed(0)}mm`;
+            }
+            // Edge case: if there's only one panel and it's not a full ideal length (e.g., total length 1000mm)
+            if (displayString === '' && panelsArray.length === 1 && panelsArray[0] > 0) {
+                 displayString = `1 x ${panelsArray[0].toFixed(0)}mm`;
+            } else if (displayString === '' && panelsArray.length === 0) {
+                displayString = 'N/A'; // Should not happen if linearFenceLength > 0
+            }
+
+
+            return displayString;
+        }
+
+        /**
+         * Draws the bird's eye view of the fence layout on the canvas.
+         * @param {object} layoutData - Object containing dimensions and layout elements.
+         */
+        function drawFenceLayout(layoutData) {
+            ctx.clearRect(0, 0, fenceLayoutCanvas.width, fenceLayoutCanvas.height); // Clear canvas
+
+            const canvasWidth = fenceLayoutCanvas.width;
+            const canvasHeight = fenceLayoutCanvas.height;
+            const padding = 20; // Padding from canvas edges
+            const fenceLineY = canvasHeight / 2;
+            const postSizePx = 8; // Visual size of a post marker, slightly larger for clarity
+            const textOffset = 25; // Vertical offset for text labels above segments
+
+            // Calculate scale: 1 pixel represents how many mm?
+            const drawingAreaWidth = canvasWidth - (2 * padding);
+            const scale = drawingAreaWidth / layoutData.overallLength; // mm per pixel
+
+            if (layoutData.overallLength <= 0 || !isFinite(scale)) {
+                 ctx.fillStyle = '#ef4444';
+                 ctx.font = '14px Inter';
+                 ctx.fillText('Enter positive boundary length for drawing.', padding, fenceLineY);
+                 return;
+             }
+
+            let currentX = padding; // Starting X position for drawing
+
+            // Function to draw a segment (gate or panel)
+            const drawSegment = (startX, length, type, color, label) => {
+                const segmentWidthPx = length * scale;
+                const endX = startX + segmentWidthPx;
+
+                // Draw segment rectangle
+                ctx.fillStyle = color;
+                ctx.fillRect(startX, fenceLineY - 10, segmentWidthPx, 20); // Wider for better visibility
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(startX, fenceLineY - 10, segmentWidthPx, 20);
+
+                // Add text label
+                ctx.fillStyle = '#1f2937';
+                ctx.font = '14px Inter'; // Slightly larger font for readability
+
+                let displayLabel = '';
+                if (type === 'sliding-gate') {
+                    displayLabel = `Sliding Gate (${length.toFixed(0)})`;
+                } else if (type === 'pedestrian-gate') {
+                    displayLabel = `PA (${length.toFixed(0)})`;
+                } else if (type === 'panel') {
+                    displayLabel = `${length.toFixed(0)}`; // Just length for panels
+                } else {
+                    displayLabel = label; // Fallback
+                }
+
+                const textWidth = ctx.measureText(displayLabel).width;
+                // Position text centered horizontally above the segment
+                ctx.fillText(displayLabel, startX + (segmentWidthPx / 2) - (textWidth / 2), fenceLineY - textOffset);
+
+                return endX;
+            };
+
+            // Function to draw a post
+            const drawPost = (x, isSlidingExtra = false) => {
+                ctx.fillStyle = isSlidingExtra ? '#FFD700' : '#4b5563'; // Gold for extra sliding post
+                ctx.fillRect(x - (postSizePx / 2), fenceLineY - (postSizePx / 2), postSizePx, postSizePx);
+                ctx.strokeStyle = '#374151';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x - (postSizePx / 2), fenceLineY - (postSizePx / 2), postSizePx, postSizePx);
+            };
+
+            // Draw initial post if overall length > 0
+            if (layoutData.overallLength > 0) {
+                drawPost(currentX); // Post at the very beginning of the boundary
+            }
+
+            // Draw Sliding Gate if present
+            if (layoutData.slidingGate.present && layoutData.slidingGate.length > 0) {
+                currentX = drawSegment(currentX, layoutData.slidingGate.length, 'sliding-gate', '#60a5fa', 'Sliding Gate');
+                drawPost(currentX); // Post at the end of the sliding gate segment
+                // Draw the third sliding gate post 150mm behind the previous post (visually for demonstration)
+                // Ensure this extra post is within the overall layout bounds for drawing
+                const extraPostX = currentX + (150 * scale);
+                if (extraPostX < canvasWidth - padding) { // Only draw if it fits on canvas
+                    drawPost(extraPostX, true); // Mark as special
+                }
+            }
+
+            // Draw Pedestrian Gate if present
+            if (layoutData.pedestrianGate.present && layoutData.pedestrianGate.width > 0) {
+                currentX = drawSegment(currentX, layoutData.pedestrianGate.width, 'pedestrian-gate', '#818cf8', 'Pedestrian Gate');
+                drawPost(currentX); // Post at the end of the pedestrian gate segment
+            }
+
+            // Draw Fence Panels
+            if (layoutData.panels.present && layoutData.panels.individualPanelLengths.length > 0) {
+                layoutData.panels.individualPanelLengths.forEach((panelLength, index) => {
+                    currentX = drawSegment(currentX, panelLength, 'panel', '#d1d5db', `Panel ${index + 1}`);
+                    drawPost(currentX); // Post at the end of each panel
+                });
+            }
+        }
+
+
+        /**
+         * Main function to calculate the fencing quote.
+         * @param {Event} event - The form submission event.
+         */
+        quoteForm.addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            // Hide previous results and errors and clear content
+            resultsDiv.classList.add('hidden');
+            errorMessageDiv.style.display = 'none'; // Ensure error message is hidden
+            errorMessageDiv.textContent = '';
+
+            // Clear sections for new calculation
+            postsSection.classList.add('hidden');
+            slidingGateSection.classList.add('hidden');
+            pedestrianGateSection.classList.add('hidden');
+            fencePanelsSection.classList.add('hidden');
+            powderCoatingSection.classList.add('hidden');
+            slidingGateFittingsSection.classList.add('hidden');
+            gateMotorsSection.classList.add('hidden');
+            installationCostsSection.classList.add('hidden');
+            profitSummarySection.classList.add('hidden');
+            fabricationCostsSection.classList.add('hidden');
+
+            postsMaterialsDiv.innerHTML = '';
+            slidingGateMaterialsDiv.innerHTML = '';
+            pedestrianGateMaterialsDiv.innerHTML = '';
+            fencePanelsInfoDiv.innerHTML = '';
+            powderCoatingDetailsDiv.innerHTML = '';
+            slidingGateFittingsMaterialsDiv.innerHTML = '';
+            gateMotorsMaterialsDiv.innerHTML = '';
+            installationDetailsDiv.innerHTML = '';
+            fabricationDetailsDiv.innerHTML = '';
+            ctx.clearRect(0, 0, fenceLayoutCanvas.width, fenceLayoutCanvas.height); // Clear canvas
+
+            // Reset panel info display
+            displayNumPanels.classList.add('hidden');
+            displayPanelLength.classList.add('hidden');
+            displayFenceLinearLength.classList.add('hidden');
+            panelHint.classList.remove('hidden');
+            panelHint.textContent = "Enter overall boundary length to calculate panels.";
+
+
+            // Read dynamic profit margins and installation costs from inputs
+            const currentProfitMargins = {
+                PROFIT_SLIDING_GATE_MATERIAL: (parseFloat(profitSlidingGateMaterialInput.value) / 100) || DEFAULT_PROFIT_SLIDING_GATE_MATERIAL,
+                PROFIT_PEDESTRIAN_GATE_MATERIAL: (parseFloat(profitPedestrianGateMaterialInput.value) / 100) || DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL,
+                PROFIT_PANELS_MATERIAL: (parseFloat(profitPanelsMaterialInput.value) / 100) || DEFAULT_PROFIT_PANELS_MATERIAL,
+                PROFIT_POSTS_CAPS_BRACKETS_MATERIAL: (parseFloat(profitPostsCapsBracketsMaterialInput.value) / 100) || DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL,
+                PROFIT_POWDER_COATING: (parseFloat(profitPowderCoatingInput.value) / 100) || DEFAULT_PROFIT_POWDER_COATING,
+                PROFIT_GATE_MOTORS: (parseFloat(profitGateMotorsInput.value) / 100) || DEFAULT_PROFIT_GATE_MOTORS,
+                PROFIT_GATE_MOTOR_HARDWARE: (parseFloat(profitGateMotorHardwareInput.value) / 100) || DEFAULT_PROFIT_GATE_MOTOR_HARDWARE,
+            };
+
+            const currentInstallationCosts = {
+                INSTALL_POSTS_FIXED: parseFloat(installPostsFixedInput.value) || DEFAULT_INSTALL_POSTS_FIXED,
+                INSTALL_SLIDING_GATE_FIXED: parseFloat(installSlidingGateFixedInput.value) || DEFAULT_INSTALL_SLIDING_GATE_FIXED,
+                INSTALL_PEDESTRIAN_GATE_FIXED: parseFloat(installPedestrianGateFixedInput.value) || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED,
+                INSTALL_PANELS_PER_METER: parseFloat(installPanelsPerMeterInput.value) || DEFAULT_INSTALL_PANELS_PER_METER,
+            };
+
+            const currentFabricationCosts = {
+                FABRICATION_COST_PER_DAY: parseFloat(fabricationCostPerDayInput.value) || DEFAULT_FABRICATION_COST_PER_DAY,
+                FABRICATION_DAYS_PER_JOB: parseFloat(fabricationDaysPerJobInput.value) || DEFAULT_FABRICATION_DAYS_PER_JOB,
+            };
+
+
+            // Initialize quote sections with specific cost categories
+            let quoteSections = {
+                posts: { materialCost: 0, materialsBreakdown: [], numCalculated: 0, length: 0 },
+                slidingGate: { materialCost: 0, materialsBreakdown: [], totalFrameLength: 0, present: false, length: 0 },
+                slidingGateFittings: { materialCost: 0, materialsBreakdown: [], present: false },
+                gateMotors: { motorMaterialCost: 0, motorBreakdown: [], hardwareMaterialCost: 0, hardwareBreakdown: [], present: false },
+                pedestrianGate: { materialCost: 0, materialsBreakdown: [], totalFrameLength: 0, present: false, width: 0, hingeType: '', latchType: '' },
+                fencePanels: { materialCost: 0, materialsBreakdown: [], totalLength: 0, numPanels: 0, individualPanelLengths: [], present: false },
+                powderCoating: { baseCost: 0, breakdown: [] },
+                totalMaterialCostBeforeProfit: 0,
+                totalPowderCoatingBaseCost: 0,
+                totalProfit: 0,
+                totalInstallationCost: 0,
+                totalFabricationCost: 0
+            };
+            let errors = [];
+
+            // Get fence height for auto-calculation of post length
+            const fenceHeight = parseFloat(fenceHeightInput.value);
+            const postSize = parseInt(document.getElementById('postSize').value);
+
+            // Auto-calculate post length
+            const calculatedPostLength = fenceHeight + 600;
+            if (isNaN(calculatedPostLength) || calculatedPostLength <= 600) {
+                 errors.push("Please enter a valid Fence Height (mm) to calculate post length.");
+            } else {
+                quoteSections.posts.length = calculatedPostLength;
+            }
+
+
+            // --- Sliding Gate Dimensions & Check ---
+            let sGateLength = 0;
+            if (slidingGateYes.checked) {
+                sGateLength = parseFloat(slidingGateLengthInput.value);
+                if (isNaN(sGateLength) || sGateLength <= 0) errors.push("Please enter a valid Sliding Gate Length.");
+                if (errors.length === 0) {
+                    quoteSections.slidingGate.present = true;
+                    quoteSections.slidingGate.length = sGateLength;
+                    quoteSections.slidingGateFittings.present = true; // If sliding gate is present, fittings are also present
+                }
+            }
+
+            // --- Gate Motor Calculation & Check ---
+            if (gateMotorYes.checked) {
+                const motorType = motorTypeSelect.value;
+                if (!motorType) errors.push("Please select a Gate Motor Type.");
+
+                if (errors.length === 0) { // Proceed only if motor type is selected
+                    quoteSections.gateMotors.present = true;
+                    const motorInfo = materialPriceList[motorType];
+                    if (motorInfo) {
+                        const motorCost = motorInfo.pricePerUnit;
+                        quoteSections.gateMotors.motorMaterialCost += motorCost;
+                        quoteSections.gateMotors.motorBreakdown.push({
+                            name: motorType,
+                            displayAmount: 1,
+                            unitType: 'unit',
+                            cost: motorCost
+                        });
+                        quoteSections.totalMaterialCostBeforeProfit += motorCost;
+                        quoteSections.totalProfit += (motorCost * currentProfitMargins.PROFIT_GATE_MOTORS);
+                    } else {
+                        errors.push(`Price information for ${motorType} not found.`);
+                    }
+
+                    // Gear Rack
+                    if (quoteSections.slidingGate.present && quoteSections.slidingGate.length > 0) {
+                        const gearRackInfo = materialPriceList['Gear rack'];
+                        if (gearRackInfo) {
+                            const requiredRackLengthMM = quoteSections.slidingGate.length; // 1m per meter of gate
+                            const rackUnitsNeeded = calculateUnitsNeeded(requiredRackLengthMM, gearRackInfo.unitLength);
+                            const costOfRack = rackUnitsNeeded * gearRackInfo.pricePerUnit;
+                            quoteSections.gateMotors.hardwareMaterialCost += costOfRack;
+                            quoteSections.gateMotors.hardwareBreakdown.push({
+                                name: 'Gear rack',
+                                displayAmount: rackUnitsNeeded,
+                                unitType: `x ${gearRackInfo.unitLength/1000}m lengths (Total ${requiredRackLengthMM.toFixed(0)}mm)`,
+                                cost: costOfRack
+                            });
+                            quoteSections.totalMaterialCostBeforeProfit += costOfRack;
+                            quoteSections.totalProfit += (costOfRack * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                        } else {
+                            errors.push('Price information for Gear rack not found.');
+                        }
+                    } else {
+                        errors.push("Sliding Gate Length is required for Gear rack calculation when a motor is selected.");
+                    }
+
+                    // Battery backup
+                    if (batteryBackupCheckbox.checked) {
+                        const batteryInfo = materialPriceList['Battery backup'];
+                        if (batteryInfo) {
+                            const batteryCost = batteryInfo.pricePerUnit;
+                            quoteSections.gateMotors.hardwareMaterialCost += batteryCost;
+                            quoteSections.gateMotors.hardwareBreakdown.push({
+                                name: 'Battery backup',
+                                displayAmount: 1,
+                                unitType: 'pcs',
+                                cost: batteryCost
+                            });
+                            quoteSections.totalMaterialCostBeforeProfit += batteryCost;
+                            quoteSections.totalProfit += (batteryCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                        } else {
+                            errors.push('Price information for Battery backup not found.');
+                        }
+                    }
+
+                    // Antenna
+                    if (antennaCheckbox.checked) {
+                        const antennaInfo = materialPriceList['Antenna'];
+                        if (antennaInfo) {
+                            const antennaCost = antennaInfo.pricePerUnit;
+                            quoteSections.gateMotors.hardwareMaterialCost += antennaCost;
+                            quoteSections.gateMotors.hardwareBreakdown.push({
+                                name: 'Antenna',
+                                displayAmount: 1,
+                                unitType: 'pcs',
+                                cost: antennaCost
+                            });
+                            quoteSections.totalMaterialCostBeforeProfit += antennaCost;
+                            quoteSections.totalProfit += (antennaCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                        } else {
+                            errors.push('Price information for Antenna not found.');
+                        }
+                    }
+
+                    // Ziggy Remote
+                    if (ziggyRemoteCheckbox.checked) {
+                        const ziggyRemoteQty = parseInt(ziggyRemoteQtyInput.value) || 1;
+                        const ziggyRemoteInfo = materialPriceList['Ziggy Remote'];
+                        if (ziggyRemoteInfo) {
+                            const ziggyRemoteCost = ziggyRemoteQty * ziggyRemoteInfo.pricePerUnit;
+                            quoteSections.gateMotors.hardwareMaterialCost += ziggyRemoteCost;
+                            quoteSections.gateMotors.hardwareBreakdown.push({
+                                name: 'Ziggy Remote',
+                                displayAmount: ziggyRemoteQty,
+                                unitType: 'pcs',
+                                cost: ziggyRemoteCost
+                            });
+                            quoteSections.totalMaterialCostBeforeProfit += ziggyRemoteCost;
+                            quoteSections.totalProfit += (ziggyRemoteCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                        } else {
+                            errors.push('Price information for Ziggy Remote not found.');
+                        }
+                    }
+                }
+            }
+
+
+            // --- Pedestrian Gate Dimensions & Check ---
+            let pGateWidth = 0;
+            let hingeType = '';
+            let latchType = '';
+
+            if (pedestrianGateYes.checked) {
+                pGateWidth = parseFloat(pedestrianGateWidthInput.value);
+                hingeType = hingeTypeSelect.value;
+                latchType = latchTypeSelect.value;
+
+                if (isNaN(pGateWidth) || pGateWidth <= 0) errors.push("Please enter a valid Pedestrian Gate Width.");
+                if (errors.length === 0) {
+                    quoteSections.pedestrianGate.present = true;
+                    quoteSections.pedestrianGate.width = pGateWidth;
+                    quoteSections.pedestrianGate.hingeType = hingeType;
+                    quoteSections.pedestrianGate.latchType = latchType;
+                }
+            }
+
+            // --- Fence Panels Calculation (based on overall boundary) ---
+            const overallBoundaryLength = parseFloat(overallBoundaryLengthInput.value);
+            let linearFenceLength = 0; // This is the length remaining for fence panels
+
+            if (isNaN(overallBoundaryLength) || overallBoundaryLength <= 0) {
+                errors.push("Please enter a valid Overall Boundary Length (mm) to calculate panels.");
+            } else {
+                linearFenceLength = overallBoundaryLength;
+
+                if (quoteSections.slidingGate.present && !isNaN(sGateLength)) {
+                    linearFenceLength -= sGateLength;
+                }
+                if (quoteSections.pedestrianGate.present && !isNaN(pGateWidth)) {
+                    linearFenceLength -= pGateWidth;
+                }
+
+                if (linearFenceLength < 0) {
+                    errors.push("Combined gate lengths exceed the overall boundary length. Please adjust inputs.");
+                } else if (linearFenceLength > 0) {
+                    quoteSections.fencePanels.present = true;
+                    quoteSections.fencePanels.totalLength = linearFenceLength;
+
+                    // Changed to directly assign from the returned object to avoid potential ReferenceError
+                    const calculatedPanelData = calculatePanelDistribution(linearFenceLength);
+                    quoteSections.fencePanels.numPanels = calculatedPanelData.numPanels;
+                    quoteSections.fencePanels.individualPanelLengths = calculatedPanelData.individualPanelLengths;
+                }
+            }
+
+
+            // Display errors if any validation failed before proceeding with final calculations
+            if (errors.length > 0) {
+                errorMessageDiv.style.display = 'block';
+                errorMessageDiv.innerHTML = errors.map(err => `<div>- ${err}</div>`).join('');
+                return;
+            }
+
+
+            // --- Automated Post Calculation ---
+            let calculatedNumPosts = 0;
+            if (overallBoundaryLength > 0) {
+                calculatedNumPosts = 1; // Start with one post at the very beginning of the boundary
+                if (quoteSections.slidingGate.present) {
+                    calculatedNumPosts += 1; // Post at the end of the sliding gate segment
+                    calculatedNumPosts += 1; // The extra third post for slider (150mm behind)
+                }
+                if (quoteSections.pedestrianGate.present) {
+                    calculatedNumPosts += 1; // Post at the end of the pedestrian gate segment
+                }
+                if (quoteSections.fencePanels.present) {
+                    calculatedNumPosts += quoteSections.fencePanels.numPanels; // One post at the end of each panel segment
+                }
+            }
+            quoteSections.posts.numCalculated = calculatedNumPosts;
+
+
+            // --- Post Material Calculation ---
+            if (quoteSections.posts.numCalculated > 0 && quoteSections.posts.length > 0) {
+                const postTypeName = `${postSize}x${postSize} Post`;
+                const postInfo = materialPriceList[postTypeName];
+                let currentPostMaterialCost = 0;
+
+                if (postInfo) {
+                    const totalRequiredPostLength = quoteSections.posts.numCalculated * quoteSections.posts.length;
+                    const postUnitsNeeded = calculateUnitsNeeded(totalRequiredPostLength, postInfo.unitLength);
+                    const costOfPosts = postUnitsNeeded * postInfo.pricePerUnit;
+
+                    quoteSections.posts.materialsBreakdown.push({
+                        name: postTypeName,
+                        displayAmount: postUnitsNeeded,
+                        unitType: `x ${postInfo.unitLength}mm lengths (Total ${totalRequiredPostLength.toFixed(0)}mm for ${quoteSections.posts.numCalculated} posts @ ${quoteSections.posts.length.toFixed(0)}mm each)`,
+                        cost: costOfPosts
+                    });
+                    currentPostMaterialCost += costOfPosts;
+
+                    // Add material cost for caps
+                    const capType = postSize === 65 ? '65x65 Caps' : '90x90 Caps';
+                    const capInfo = materialPriceList[capType];
+                    if (capInfo) {
+                        const capsMaterialCost = quoteSections.posts.numCalculated * capInfo.pricePerUnit;
+                        quoteSections.posts.materialsBreakdown.push({
+                            name: capType,
+                            displayAmount: quoteSections.posts.numCalculated,
+                            unitType: 'pcs',
+                            cost: capsMaterialCost
+                        });
+                        currentPostMaterialCost += capsMaterialCost;
+                    } else {
+                        errors.push(`Price information for ${capType} not found.`);
+                    }
+
+                    quoteSections.posts.materialCost = currentPostMaterialCost;
+                    quoteSections.totalMaterialCostBeforeProfit += currentPostMaterialCost;
+                    quoteSections.totalProfit += (currentPostMaterialCost * currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
+
+                    // Powder coating for posts
+                    const totalPostLengthMeters = totalRequiredPostLength / 1000;
+                    const powderCoatingRateForPost = powderCoatingRates[postTypeName];
+                    const powderCoatingCostForPosts = totalPostLengthMeters * powderCoatingRateForPost;
+
+                    quoteSections.powderCoating.breakdown.push({
+                        name: `${postTypeName} Powder Coat`,
+                        displayAmount: totalPostLengthMeters.toFixed(2),
+                        unitType: `meters`,
+                        cost: powderCoatingCostForPosts
+                    });
+                    quoteSections.powderCoating.baseCost += powderCoatingCostForPosts;
+                } else {
+                    errors.push(`Price information for ${postTypeName} not found.`);
+                }
+
+                // Installation for posts
+                if (overallBoundaryLength > 0) {
+                    quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_POSTS_FIXED;
+                }
+            }
+
+
+            // --- Sliding Gate Material Calculation ---
+            if (quoteSections.slidingGate.present) {
+                const sGateLength = quoteSections.slidingGate.length;
+                const sGateHeight = fenceHeight;
+                let currentSlidingGateMaterialCost = 0;
+
+                let slidingGateRawMaterials = {
+                    '100x50 RHS': 0, '40x40 SHS': 0, '50x10 Pickets': 0, 'Picket Top': 0, '40x40 Angle': 0
+                };
+
+                const rhsFramePart = sGateLength + 400 + postSize;
+                const shsVerticalFramePart = (sGateHeight - 170) * 2;
+                const shsHorizontalFramePart = sGateLength;
+
+                slidingGateRawMaterials['100x50 RHS'] += rhsFramePart;
+                slidingGateRawMaterials['40x40 SHS'] += shsVerticalFramePart + shsHorizontalFramePart;
+                quoteSections.slidingGate.totalFrameLength = (rhsFramePart + shsVerticalFramePart + shsHorizontalFramePart) / 1000;
+
+                const numPicketsSliding = Math.ceil(sGateLength / 90);
+                const picketHeightSliding = sGateHeight;
+                const totalPicketLengthSliding = numPicketsSliding * picketHeightSliding;
+                slidingGateRawMaterials['50x10 Pickets'] += totalPicketLengthSliding;
+
+                slidingGateRawMaterials['Picket Top'] += numPicketsSliding;
+
+                slidingGateRawMaterials['40x40 Angle'] += sGateLength;
+
+                for (const materialName in slidingGateRawMaterials) {
+                    const requiredAmount = slidingGateRawMaterials[materialName];
+                    const materialInfo = materialPriceList[materialName];
+                    if (requiredAmount > 0 && materialInfo) {
+                        let costForMaterial = 0; let displayAmount = 0; let unitType = '';
+                        if (materialName === 'Picket Top') {
+                            costForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
+                        } else if (materialName === '50x10 Pickets') {
+                            const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            displayAmount = numPicketsSliding;
+                            unitType = `pcs (each ${picketHeightSliding.toFixed(0)}mm / Total ${totalPicketLengthSliding.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
+                        }
+                        else {
+                            const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
+                        }
+                        quoteSections.slidingGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
+                        currentSlidingGateMaterialCost += costForMaterial;
+                    }
+                }
+                quoteSections.slidingGate.materialCost = currentSlidingGateMaterialCost;
+                quoteSections.totalMaterialCostBeforeProfit += currentSlidingGateMaterialCost;
+                quoteSections.totalProfit += (currentSlidingGateMaterialCost * currentProfitMargins.PROFIT_SLIDING_GATE_MATERIAL);
+
+                // Powder coating for sliding gate
+                const gateSurfaceAreaM2 = (sGateLength / 1000) * (sGateHeight / 1000);
+                const powderCoatingCostForSlidingGate = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+
+                quoteSections.powderCoating.breakdown.push({
+                    name: `Sliding Gate Frame Powder Coat`,
+                    displayAmount: gateSurfaceAreaM2.toFixed(2),
+                    unitType: `sq meters`,
+                    cost: powderCoatingCostForSlidingGate
+                });
+                quoteSections.powderCoating.baseCost += powderCoatingCostForSlidingGate;
+
+                // Installation for sliding gate
+                quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED;
+
+
+                // Sliding Gate Fittings Calculation
+                if (quoteSections.slidingGateFittings.present) {
+                    let currentSlidingGateFittingsMaterialCost = 0;
+
+                    const fittingItems = [
+                        { name: 'Guide Rollers', qty: 2, key: 'Guide Rollers', powderCoat: false },
+                        { name: 'Guide Bracket', qty: 1, key: 'Guide Bracket', powderCoat: true },
+                        { name: '100x50 Cap', qty: 2, key: '100x50 Cap', powderCoat: false },
+                        { name: 'Gate Wheel', qty: 2, key: 'Gate Wheel', powderCoat: false },
+                        { name: '50mm Catch', qty: 1, key: '50mm Catch', powderCoat: true },
+                    ];
+
+                    fittingItems.forEach(item => {
+                        const materialInfo = materialPriceList[item.key];
+                        if (materialInfo) {
+                            const cost = item.qty * materialInfo.pricePerUnit;
+                            quoteSections.slidingGateFittings.materialsBreakdown.push({
+                                name: item.name,
+                                displayAmount: item.qty,
+                                unitType: 'pcs',
+                                cost: cost
+                            });
+                            currentSlidingGateFittingsMaterialCost += cost;
+
+                            // Add powder coating cost if applicable
+                            if (item.powderCoat) {
+                                const powderCoatCost = item.qty * powderCoatingRates['Per_Piece_Powder_Coat'];
+                                quoteSections.powderCoating.breakdown.push({
+                                    name: `${item.name} Powder Coat`,
+                                    displayAmount: item.qty,
+                                    unitType: 'pcs',
+                                    cost: powderCoatCost
+                                });
+                                quoteSections.powderCoating.baseCost += powderCoatCost;
+                            }
+
+                        } else {
+                            errors.push(`Price information for ${item.name} not found.`);
+                        }
+                    });
+
+                    // Gate Track calculation (dynamic based on gate length)
+                    const gateTrackInfo = materialPriceList['Gate Track'];
+                    if (gateTrackInfo) {
+                        const requiredTrackLengthMM = Math.max(0, (sGateLength - 2000)) * 2;
+                        const trackUnitsNeeded = calculateUnitsNeeded(requiredTrackLengthMM, gateTrackInfo.unitLength);
+                        const costOfTrack = trackUnitsNeeded * gateTrackInfo.pricePerUnit;
+                        quoteSections.slidingGateFittings.materialsBreakdown.push({
+                            name: 'Gate Track',
+                            displayAmount: trackUnitsNeeded,
+                            unitType: `x ${gateTrackInfo.unitLength/1000}m lengths (Total ${requiredTrackLengthMM.toFixed(0)}mm)`,
+                            cost: costOfTrack
+                        });
+                        currentSlidingGateFittingsMaterialCost += costOfTrack;
+                    } else {
+                        errors.push('Price information for Gate Track not found.');
+                    }
+
+                    quoteSections.slidingGateFittings.materialCost = currentSlidingGateFittingsMaterialCost;
+                    quoteSections.totalMaterialCostBeforeProfit += currentSlidingGateFittingsMaterialCost;
+                    quoteSections.totalProfit += (currentSlidingGateFittingsMaterialCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                }
+            }
+
+
+            // --- Pedestrian Gate Material Calculation ---
+            if (quoteSections.pedestrianGate.present) {
+                const pGateWidth = quoteSections.pedestrianGate.width;
+                const pGateHeight = fenceHeight;
+                const chosenHingeType = quoteSections.pedestrianGate.hingeType;
+                const chosenLatchType = quoteSections.pedestrianGate.latchType;
+                let currentPedestrianGateMaterialCost = 0;
+
+                // First, add costs for hinges and latches (material cost)
+                const hingeInfo = materialPriceList[chosenHingeType];
+                const latchInfo = materialPriceList[chosenLatchType];
+
+                if (hingeInfo) {
+                    const hingesCost = hingeInfo.pricePerUnit * 2;
+                    quoteSections.pedestrianGate.materialsBreakdown.push({
+                        name: chosenHingeType,
+                        displayAmount: 2,
+                        unitType: 'pcs',
+                        cost: hingesCost
+                    });
+                    currentPedestrianGateMaterialCost += hingesCost;
+                } else {
+                    errors.push(`Price information for ${chosenHingeType} not found.`);
+                }
+
+                if (latchInfo) {
+                    const latchCost = latchInfo.pricePerUnit * 1;
+                    quoteSections.pedestrianGate.materialsBreakdown.push({
+                        name: chosenLatchType,
+                        displayAmount: 1,
+                        unitType: 'pcs',
+                        cost: latchCost
+                    });
+                    currentPedestrianGateMaterialCost += latchCost;
+                } else {
+                    errors.push(`Price information for ${chosenLatchType} not found.`);
+                }
+
+                // Now, calculate the raw materials for the gate frame and pickets
+                let pedestrianGateRawMaterials = {
+                    '40x40 SHS': 0, '50x10 Pickets': 0, 'Picket Top': 0
+                };
+
+                const shsVerticalFramePart = (pGateHeight - 170) * 2;
+                const shsHorizontalFramePart = (pGateWidth - 130) * 2;
+
+                pedestrianGateRawMaterials['40x40 SHS'] += shsVerticalFramePart + shsHorizontalFramePart;
+                quoteSections.pedestrianGate.totalFrameLength = (shsVerticalFramePart + shsHorizontalFramePart) / 1000;
+
+                const numPicketsPedestrian = Math.ceil(pGateWidth / 90);
+                const picketHeightPedestrian = pGateHeight;
+                const totalPicketLengthPedestrian = numPicketsPedestrian * picketHeightPedestrian;
+                pedestrianGateRawMaterials['50x10 Pickets'] += totalPicketLengthPedestrian;
+                pedestrianGateRawMaterials['Picket Top'] += numPicketsPedestrian;
+
+
+                for (const materialName in pedestrianGateRawMaterials) {
+                    const requiredAmount = pedestrianGateRawMaterials[materialName];
+                    const materialInfo = materialPriceList[materialName];
+                    if (requiredAmount > 0 && materialInfo) {
+                        let costForMaterial = 0; let displayAmount = 0; let unitType = '';
+                        if (materialName === 'Picket Top') {
+                            costForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
+                        } else if (materialName === '50x10 Pickets') {
+                            const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            displayAmount = numPicketsPedestrian;
+                            unitType = `pcs (each ${picketHeightPedestrian.toFixed(0)}mm / Total ${totalPicketLengthPedestrian.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
+                        }
+                        else {
+                            const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
+                        }
+                        quoteSections.pedestrianGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
+                        currentPedestrianGateMaterialCost += costForMaterial;
+                    }
+                }
+                quoteSections.pedestrianGate.materialCost = currentPedestrianGateMaterialCost;
+                quoteSections.totalMaterialCostBeforeProfit += currentPedestrianGateMaterialCost;
+                quoteSections.totalProfit += (currentPedestrianGateMaterialCost * currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
+
+                // Powder coating for pedestrian gate (frame)
+                const gateSurfaceAreaM2 = (pGateWidth / 1000) * (pGateHeight / 1000);
+                const powderCoatingCostForPedestrianGateFrame = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+
+                quoteSections.powderCoating.breakdown.push({
+                    name: `Pedestrian Gate Frame Powder Coat`,
+                    displayAmount: gateSurfaceAreaM2.toFixed(2),
+                    unitType: `sq meters`,
+                    cost: powderCoatingCostForPedestrianGateFrame
+                });
+                quoteSections.powderCoating.baseCost += powderCoatingCostForPedestrianGateFrame;
+
+                // Powder coating for hinges and latch if applicable
+                if (chosenHingeType === 'Adjustable Hinges') {
+                    const hingesPowderCost = 2 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    quoteSections.powderCoating.breakdown.push({
+                        name: `${chosenHingeType} Powder Coat`,
+                        displayAmount: 2,
+                        unitType: 'pcs',
+                        cost: hingesPowderCost
+                    });
+                    quoteSections.powderCoating.baseCost += hingesPowderCost;
+                }
+                if (chosenLatchType === 'D latch') {
+                    const latchPowderCost = 1 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    quoteSections.powderCoating.breakdown.push({
+                        name: `${chosenLatchType} Powder Coat`,
+                        displayAmount: 1,
+                        unitType: 'pcs',
+                        cost: latchPowderCost
+                    });
+                    quoteSections.powderCoating.baseCost += latchPowderCost;
+                }
+
+                // Installation for pedestrian gate
+                quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED;
+            }
+
+            // --- Fence Panels Material Calculation ---
+            if (quoteSections.fencePanels.present && quoteSections.fencePanels.individualPanelLengths.length > 0) {
+                const fenceHeight = parseFloat(fenceHeightInput.value)
