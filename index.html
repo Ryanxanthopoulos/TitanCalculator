@@ -82,15 +82,7 @@
             margin-bottom: 1.75rem;
             color: #2c5282; /* Deep blue for results heading */
         }
-        .results-section h3 {
-            font-size: 1.45rem; /* Slightly larger subheadings */
-            font-weight: 600;
-            margin-top: 2.25rem; /* More space above subheadings */
-            margin-bottom: 1.25rem;
-            color: #4a5568; /* Slightly lighter subheading color */
-            border-bottom: 1px solid #ebf4ff; /* Lighter border below subheadings */
-            padding-bottom: 0.85rem;
-        }
+        /* Removed direct styling for h3 in results-section to allow toggle-btn to style it */
         .results-section .subtotal-line {
             font-weight: 600;
             text-align: right;
@@ -185,10 +177,14 @@
             width: 100%; /* Ensure full width */
             border: 1px solid #d1d5db; /* Soft border */
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-top: 1.5rem; /* Added margin-top for toggle buttons */
         }
         .toggle-btn:hover {
             background-color: #e2e8f0; /* Slightly darker on hover */
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+        .toggle-btn span {
+            font-size: 1.2rem; /* Larger text for toggle buttons */
         }
         .toggle-icon {
             transition: transform 0.2s ease-in-out;
@@ -227,15 +223,16 @@
             font-size: 1rem;
         }
 
-        /* Advanced Settings Content Specific Styles for clean collapse */
-        #advancedSettingsContent {
+        /* Collapsible content area for advanced settings and results sections */
+        .collapsible-content {
             overflow: hidden; /* Crucial for hiding content outside max-height */
             max-height: 0; /* Starts collapsed */
             transition: max-height 0.3s ease-out, padding 0.3s ease-out; /* Smooth transition for height and padding */
             padding-top: 0; /* Start with no vertical padding when hidden */
             padding-bottom: 0; /* Start with no vertical padding when hidden */
+            margin-top: 0.5rem; /* Small margin after toggle button */
         }
-        #advancedSettingsContent.expanded {
+        .collapsible-content.expanded {
             max-height: 1000px; /* Sufficiently large to show all content when expanded */
             padding-top: 1rem; /* Restore padding when expanded */
             padding-bottom: 1rem; /* Restore padding when expanded */
@@ -274,11 +271,8 @@
                 font-size: 1.25rem; /* Smaller results heading for very small screens */
                 margin-bottom: 1.25rem;
             }
-            .results-section h3 {
-                font-size: 1rem; /* Smaller subheadings for very small screens */
-                margin-top: 1.75rem;
-                margin-bottom: 1rem;
-                padding-bottom: 0.65rem;
+            .toggle-btn span {
+                font-size: 1rem; /* Smaller text for toggle buttons on mobile */
             }
             .results-section .subtotal-line {
                 margin-top: 0.75rem;
@@ -292,6 +286,10 @@
             .message-box {
                 max-width: 95%;
                 padding: 1.5rem;
+            }
+            .collapsible-content.expanded {
+                padding-top: 0.5rem; /* Adjusted padding for smaller screens */
+                padding-bottom: 0.5rem;
             }
         }
     </style>
@@ -457,7 +455,7 @@
                     <span>Advanced Settings</span>
                     <span class="toggle-icon">▶</span>
                 </button>
-                <div id="advancedSettingsContent" class="hidden mt-4 space-y-4">
+                <div id="advancedSettingsContent" class="collapsible-content">
                     <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3">Profit Margins (%)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="input-group">
@@ -544,98 +542,148 @@
 
                 <!-- Posts Section -->
                 <div id="postsSection" class="hidden">
-                    <h3>Posts (Material Only)</h3>
-                    <div class="material-line-item">
-                        <div class="item-name">Calculated Number of Posts:</div>
-                        <div class="item-qty-unit" id="calculatedNumPostsDisplay">0</div>
+                    <button type="button" class="toggle-btn" data-target="postsContent">
+                        <span>Posts (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="postsContent" class="collapsible-content">
+                        <div class="material-line-item">
+                            <div class="item-name">Calculated Number of Posts:</div>
+                            <div class="item-qty-unit" id="calculatedNumPostsDisplay">0</div>
+                        </div>
+                        <div class="material-line-item">
+                            <div class="item-name">Calculated Post Length:</div>
+                            <div class="item-qty-unit" id="calculatedPostLengthDisplay">0mm</div>
+                        </div>
+                        <div id="postsMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                     </div>
-                    <div class="material-line-item">
-                        <div class="item-name">Calculated Post Length:</div>
-                        <div class="item-qty-unit" id="calculatedPostLengthDisplay">0mm</div>
-                    </div>
-                    <div id="postsMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Sliding Gate Section -->
                 <div id="slidingGateSection" class="hidden">
-                    <h3>Sliding Gate (Material Only)</h3>
-                    <div id="slidingGateMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate: <span id="slidingGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <button type="button" class="toggle-btn" data-target="slidingGateContent">
+                        <span>Sliding Gate (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="slidingGateContent" class="collapsible-content">
+                        <div id="slidingGateMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate: <span id="slidingGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    </div>
                 </div>
 
                 <!-- Sliding Gate Fittings Section -->
                 <div id="slidingGateFittingsSection" class="hidden">
-                    <h3>Sliding Gate Fittings (Material Only)</h3>
-                    <div id="slidingGateFittingsMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate Fittings: <span id="slidingGateFittingsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <button type="button" class="toggle-btn" data-target="slidingGateFittingsContent">
+                        <span>Sliding Gate Fittings (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="slidingGateFittingsContent" class="collapsible-content">
+                        <div id="slidingGateFittingsMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate Fittings: <span id="slidingGateFittingsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    </div>
                 </div>
 
                 <!-- Gate Motors & Accessories Section -->
                 <div id="gateMotorsSection" class="hidden">
-                    <h3>Gate Motors & Accessories (Material Only)</h3>
-                    <div id="gateMotorsMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Gate Motors & Accessories: <span id="gateMotorsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <button type="button" class="toggle-btn" data-target="gateMotorsContent">
+                        <span>Gate Motors & Accessories (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="gateMotorsContent" class="collapsible-content">
+                        <div id="gateMotorsMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Gate Motors & Accessories: <span id="gateMotorsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    </div>
                 </div>
 
                 <!-- Pedestrian Gate Section -->
                 <div id="pedestrianGateSection" class="hidden">
-                    <h3>Pedestrian Gate (Material Only)</h3>
-                    <div id="pedestrianGateMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Pedestrian Gate: <span id="pedestrianGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <button type="button" class="toggle-btn" data-target="pedestrianGateContent">
+                        <span>Pedestrian Gate (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="pedestrianGateContent" class="collapsible-content">
+                        <div id="pedestrianGateMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Pedestrian Gate: <span id="pedestrianGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    </div>
                 </div>
 
                 <!-- Fence Panels Section -->
-                <div id="fencePanelsSection">
-                    <h3>Fence Panels (Material Only)</h3>
-                    <div class="material-line-item">
-                        <div class="item-name">Number of Panels:</div>
-                        <div class="item-qty-unit" id="displayNumPanelsActual">0</div>
+                <div id="fencePanelsSection" class="hidden">
+                    <button type="button" class="toggle-btn" data-target="fencePanelsContent">
+                        <span>Fence Panels (Material Only)</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="fencePanelsContent" class="collapsible-content">
+                        <div class="material-line-item">
+                            <div class="item-name">Number of Panels:</div>
+                            <div class="item-qty-unit" id="displayNumPanelsActual">0</div>
+                        </div>
+                        <div class="material-line-item">
+                            <div class="item-name">Panel Length:</div>
+                            <div class="item-qty-unit" id="displayPanelLengthActual">0mm</div>
+                        </div>
+                        <div class="material-line-item">
+                            <div class="item-name">Total Linear Fence Length:</div>
+                            <div class="item-qty-unit" id="displayFenceLinearLengthActual">0mm</div>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
+                        <div id="fencePanelsMaterials" class="space-y-1"></div>
+                        <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                     </div>
-                    <div class="material-line-item">
-                        <div class="item-name">Panel Length:</div>
-                        <div class="item-qty-unit" id="displayPanelLengthActual">0mm</div>
-                    </div>
-                    <div class="material-line-item">
-                        <div class="item-name">Total Linear Fence Length:</div>
-                        <div class="item-qty-unit" id="displayFenceLinearLengthActual">0mm</div>
-                    </div>
-                    <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
-                    <div id="fencePanelsMaterials" class="space-y-1"></div>
-                    <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Powder Coating Section -->
                 <div id="powderCoatingSection" class="hidden">
-                    <h2>Powder Coating Costs</h2>
-                    <div id="powderCoatingDetails" class="mt-4 text-gray-700 space-y-2">
-                        <!-- Powder coating breakdown will be inserted here -->
+                    <button type="button" class="toggle-btn" data-target="powderCoatingContent">
+                        <span>Powder Coating Costs</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="powderCoatingContent" class="collapsible-content">
+                        <div id="powderCoatingDetails" class="mt-4 text-gray-700 space-y-2">
+                            <!-- Powder coating breakdown will be inserted here -->
+                        </div>
+                        <p class="subtotal-line flex justify-between text-blue-700">Total Powder Coating Cost: <span id="powderCoatingTotal" class="font-semibold text-blue-800 text-lg">$0.00</span></p>
                     </div>
-                    <p class="subtotal-line flex justify-between text-blue-700">Total Powder Coating Cost: <span id="powderCoatingTotal" class="font-semibold text-blue-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Fabrication Costs Section -->
                 <div id="fabricationCostsSection" class="hidden">
-                    <h2>Fabrication Costs</h2>
-                    <div id="fabricationDetails" class="mt-4 text-gray-700 space-y-2">
-                        <!-- Fabrication breakdown will be inserted here -->
+                    <button type="button" class="toggle-btn" data-target="fabricationContent">
+                        <span>Fabrication Costs</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="fabricationContent" class="collapsible-content">
+                        <div id="fabricationDetails" class="mt-4 text-gray-700 space-y-2">
+                            <!-- Fabrication breakdown will be inserted here -->
+                        </div>
+                        <p class="subtotal-line flex justify-between text-orange-700">Total Fabrication Cost: <span id="fabricationTotal" class="font-semibold text-orange-800 text-lg">$0.00</span></p>
                     </div>
-                    <p class="subtotal-line flex justify-between text-orange-700">Total Fabrication Cost: <span id="fabricationTotal" class="font-semibold text-orange-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Installation Costs Section -->
                 <div id="installationCostsSection" class="hidden">
-                    <h2>Installation Costs</h2>
-                    <div id="installationDetails" class="mt-4 text-gray-700 space-y-2">
-                        <!-- Installation breakdown will be inserted here -->
+                    <button type="button" class="toggle-btn" data-target="installationContent">
+                        <span>Installation Costs</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="installationContent" class="collapsible-content">
+                        <div id="installationDetails" class="mt-4 text-gray-700 space-y-2">
+                            <!-- Installation breakdown will be inserted here -->
+                        </div>
+                        <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
                     </div>
-                    <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Profit Summary -->
                 <div id="profitSummarySection" class="hidden">
-                    <h2>Profit Summary</h2>
-                    <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
+                    <button type="button" class="toggle-btn" data-target="profitSummaryContent">
+                        <span>Profit Summary</span>
+                        <span class="toggle-icon">▶</span>
+                    </button>
+                    <div id="profitSummaryContent" class="collapsible-content">
+                        <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
+                    </div>
                 </div>
 
             </div>
@@ -903,17 +951,28 @@
             }
         });
 
-        // Toggle Advanced Settings visibility
-        toggleAdvancedSettingsBtn.addEventListener('click', () => {
-            advancedSettingsContent.classList.toggle('hidden');
-            toggleIcon.classList.toggle('rotate');
-            if (advancedSettingsContent.classList.contains('hidden')) {
-                advancedSettingsContent.classList.remove('expanded');
-            } else {
-                advancedSettingsContent.classList.add('expanded');
-            }
-        });
+        /**
+         * Generic function to toggle collapsible sections.
+         * @param {HTMLElement} toggleBtn - The button that triggers the toggle.
+         */
+        function toggleCollapsibleSection(toggleBtn) {
+            const targetId = toggleBtn.dataset.target;
+            const contentDiv = document.getElementById(targetId);
+            const iconSpan = toggleBtn.querySelector('.toggle-icon');
 
+            if (contentDiv.classList.contains('expanded')) {
+                contentDiv.classList.remove('expanded');
+                iconSpan.classList.remove('rotate');
+            } else {
+                contentDiv.classList.add('expanded');
+                iconSpan.classList.add('rotate');
+            }
+        }
+
+        // Event listener for Advanced Settings toggle
+        toggleAdvancedSettingsBtn.addEventListener('click', () => {
+            toggleCollapsibleSection(toggleAdvancedSettingsBtn);
+        });
 
         // Live update for auto-calculated post length
         fenceHeightInput.addEventListener('input', updateCalculatedPostLength);
@@ -921,9 +980,6 @@
         function updateCalculatedPostLength() {
             const fenceHeight = parseFloat(fenceHeightInput.value) || 0;
             const calculatedLength = fenceHeight + 600;
-            // No longer updating displayPostLength, as that element is now hidden
-            // calculatedPostLengthDisplay.textContent = `${calculatedLength.toFixed(0)}mm`;
-            // document.getElementById('displayPostLength').querySelector('span').textContent = `${calculatedLength.toFixed(0)}mm`;
         }
 
         // Live update for fence panel info based on boundary and gate lengths
@@ -1207,8 +1263,17 @@
             errorMessageDiv.style.display = 'none'; // Ensure error message is hidden
             errorMessageDiv.textContent = '';
 
-            // Clear sections for new calculation and ensure sections are visible by default
-            postsSection.classList.add('hidden'); // Initially hidden, will be shown if applicable
+            // Get all collapsible content areas and hide them (collapse)
+            document.querySelectorAll('.collapsible-content').forEach(content => {
+                content.classList.remove('expanded');
+            });
+            // Reset all toggle icons to un-rotated state
+            document.querySelectorAll('.toggle-icon').forEach(icon => {
+                icon.classList.remove('rotate');
+            });
+
+            // Hide all result sections initially
+            postsSection.classList.add('hidden');
             slidingGateSection.classList.add('hidden');
             pedestrianGateSection.classList.add('hidden');
             fencePanelsSection.classList.add('hidden');
@@ -1218,6 +1283,7 @@
             installationCostsSection.classList.add('hidden');
             profitSummarySection.classList.add('hidden');
             fabricationCostsSection.classList.add('hidden');
+
 
             postsMaterialsDiv.innerHTML = '';
             slidingGateMaterialsDiv.innerHTML = '';
@@ -2111,6 +2177,14 @@
         updateCalculatedPostLength(); // Call once on load to set initial post length display (even if hidden, for internal value)
         updateFencePanelInfo(); // Call once on load to show initial panel info
         initializeAdvancedSettings(); // Initialize advanced settings inputs
+
+        // Add event listeners for new toggle buttons for results sections
+        document.querySelectorAll('#results .toggle-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                toggleCollapsibleSection(button);
+            });
+        });
+
     </script>
 </body>
 </html>
