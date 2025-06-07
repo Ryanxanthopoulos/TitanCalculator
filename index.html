@@ -227,6 +227,20 @@
             font-size: 1rem;
         }
 
+        /* Advanced Settings Content Specific Styles for clean collapse */
+        #advancedSettingsContent {
+            overflow: hidden; /* Crucial for hiding content outside max-height */
+            max-height: 0; /* Starts collapsed */
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out; /* Smooth transition for height and padding */
+            padding-top: 0; /* Start with no vertical padding when hidden */
+            padding-bottom: 0; /* Start with no vertical padding when hidden */
+        }
+        #advancedSettingsContent.expanded {
+            max-height: 1000px; /* Sufficiently large to show all content when expanded */
+            padding-top: 1rem; /* Restore padding when expanded */
+            padding-bottom: 1rem; /* Restore padding when expanded */
+        }
+
 
         /* Responsive adjustments for smaller screens */
         @media (max-width: 640px) {
@@ -893,6 +907,11 @@
         toggleAdvancedSettingsBtn.addEventListener('click', () => {
             advancedSettingsContent.classList.toggle('hidden');
             toggleIcon.classList.toggle('rotate');
+            if (advancedSettingsContent.classList.contains('hidden')) {
+                advancedSettingsContent.classList.remove('expanded');
+            } else {
+                advancedSettingsContent.classList.add('expanded');
+            }
         });
 
 
@@ -1784,7 +1803,7 @@
                 quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED;
             }
 
-            // --- Fence Panels Material Calculation ---
+            // --- Fence Panels Calculation ---
             if (quoteSections.fencePanels.present && quoteSections.fencePanels.individualPanelLengths.length > 0) {
                 const fenceHeight = parseFloat(fenceHeightInput.value) || 0;
                 let currentFencePanelsMaterialCost = 0;
@@ -2084,10 +2103,6 @@
             fabricationCostPerDayInput.value = DEFAULT_FABRICATION_COST_PER_DAY;
             fabricationDaysPerJobInput.value = DEFAULT_FABRICATION_DAYS_PER_JOB;
         }
-
-        // Removed the toggleCollapsibleSection function and related event listeners
-        // as the sections are now always expanded.
-
 
         // Initialize visibility on load and update panel info
         toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
