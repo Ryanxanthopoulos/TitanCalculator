@@ -15,41 +15,41 @@
             justify-content: center;
             align-items: flex-start; /* Align to top to prevent vertical centering on very short content */
             min-height: 100vh; /* Ensure it takes at least full viewport height */
-            padding: 2rem 1rem; /* Add padding for smaller screens */
+            padding: 2.5rem 1.5rem; /* Increased padding around the body */
             box-sizing: border-box; /* Include padding in element's total width and height */
         }
         .container {
             max-width: 900px;
             width: 100%; /* Ensure it takes full width on small screens */
             margin: 0 auto; /* Center horizontally */
-            padding: 2rem; /* Increased padding */
+            padding: 2.5rem; /* Increased padding inside the container */
             background-color: #ffffff;
             border-radius: 16px; /* More rounded corners */
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); /* Softer, larger shadow */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); /* Softer, larger shadow */
             box-sizing: border-box;
         }
         h1 {
-            font-size: 2.25rem; /* Larger heading */
+            font-size: 2.5rem; /* Slightly larger heading */
             font-weight: 700;
             color: #1a202c; /* Darker text for headings */
-            margin-bottom: 2rem; /* More space below heading */
+            margin-bottom: 2.5rem; /* More space below heading */
         }
         .input-group {
-            margin-bottom: 1.5rem; /* More space between input groups */
+            margin-bottom: 1.75rem; /* More space between input groups */
         }
         .input-group label {
             display: block;
-            margin-bottom: 0.6rem; /* Slightly more space below label */
+            margin-bottom: 0.75rem; /* Slightly more space below label */
             font-weight: 600;
             color: #2d3748; /* Darker label text */
-            font-size: 0.95rem; /* Slightly smaller label font */
+            font-size: 1rem; /* Standard label font size */
         }
         .input-group input[type="number"],
         .input-group select {
             width: 100%;
-            padding: 0.85rem 1rem; /* Increased padding for inputs */
+            padding: 0.95rem 1.15rem; /* Increased padding for inputs */
             border: 1px solid #cbd5e0; /* Softer border color */
-            border-radius: 10px; /* Slightly more rounded inputs */
+            border-radius: 12px; /* Slightly more rounded inputs */
             font-size: 1rem;
             color: #2d3748;
             background-color: #ffffff;
@@ -59,10 +59,10 @@
         .input-group select:focus {
             outline: none;
             border-color: #4299e1; /* Brighter blue on focus */
-            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); /* Subtle blue glow */
+            box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.3); /* Subtle blue glow */
         }
         .radio-group label {
-            margin-right: 2rem; /* More space between radio options */
+            margin-right: 2.5rem; /* More space between radio options */
             font-weight: 500; /* Lighter font weight */
         }
         .radio-group input[type="radio"] {
@@ -71,33 +71,34 @@
 
         .results-section {
             background-color: #f8fafc; /* Very light background for results */
-            padding: 2rem; /* Increased padding */
-            border-radius: 12px;
+            padding: 2.5rem; /* Increased padding */
+            border-radius: 14px; /* More rounded corners */
             border: 1px solid #e2e8f0; /* Soft border */
-            margin-top: 2.5rem; /* More space above results */
+            margin-top: 3rem; /* More space above results */
         }
         .results-section h2 {
-            font-size: 1.75rem; /* Larger results heading */
+            font-size: 2rem; /* Larger results heading */
             font-weight: 700;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.75rem;
             color: #2c5282; /* Deep blue for results heading */
         }
         .results-section h3 {
-            font-size: 1.35rem; /* Slightly larger subheadings */
+            font-size: 1.45rem; /* Slightly larger subheadings */
             font-weight: 600;
-            margin-top: 2rem; /* More space above subheadings */
-            margin-bottom: 1rem;
+            margin-top: 2.25rem; /* More space above subheadings */
+            margin-bottom: 1.25rem;
             color: #4a5568; /* Slightly lighter subheading color */
             border-bottom: 1px solid #ebf4ff; /* Lighter border below subheadings */
-            padding-bottom: 0.75rem;
+            padding-bottom: 0.85rem;
         }
         .results-section .subtotal-line {
             font-weight: 600;
             text-align: right;
-            margin-top: 0.75rem;
-            padding-top: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
             border-top: 1px dashed #e2e8f0; /* Softer dashed line */
             color: #2d3748;
+            font-size: 1.05rem; /* Slightly larger font for subtotals */
         }
         .results-section .subtotal-line span {
             font-weight: 700;
@@ -105,9 +106,9 @@
         .error-message {
             background-color: #ffeaea; /* Softer red background */
             color: #e53e3e; /* Brighter red text */
-            padding: 1.25rem;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
+            padding: 1.5rem; /* More padding */
+            border-radius: 12px;
+            margin-bottom: 2rem;
             border: 1px solid #fbd3d3;
             font-weight: 500;
         }
@@ -199,13 +200,13 @@
         /* Responsive adjustments for smaller screens */
         @media (max-width: 640px) {
             body {
-                padding: 1rem 0.5rem;
+                padding: 1rem 0.5rem; /* Reduced padding on very small screens */
             }
             .container {
                 margin: 0;
                 border-radius: 0;
                 box-shadow: none;
-                padding: 1rem;
+                padding: 1rem; /* Reduced padding inside container on very small screens */
             }
             h1 {
                 font-size: 1.75rem;
@@ -905,7 +906,7 @@
          */
         function formatLineItem(name, displayAmount, unitType, cost) {
             return `
-                <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                     <span class="font-normal text-gray-700">${name}:</span>
                     <span class="text-gray-600">${displayAmount} ${unitType}</span>
                     <span class="font-semibold text-gray-800">$${cost.toFixed(2)}</span>
