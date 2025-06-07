@@ -543,7 +543,7 @@
                 <!-- Posts Section -->
                 <div id="postsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="postsContent">
-                        <span>Posts (Material Only)</span>
+                        <span id="postsSectionTitle">Posts</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="postsContent" class="collapsible-content">
@@ -563,7 +563,7 @@
                 <!-- Sliding Gate Section -->
                 <div id="slidingGateSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="slidingGateContent">
-                        <span>Sliding Gate (Material Only)</span>
+                        <span id="slidingGateSectionTitle">Sliding Gate</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="slidingGateContent" class="collapsible-content">
@@ -575,7 +575,7 @@
                 <!-- Sliding Gate Fittings Section -->
                 <div id="slidingGateFittingsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="slidingGateFittingsContent">
-                        <span>Sliding Gate Fittings (Material Only)</span>
+                        <span id="slidingGateFittingsSectionTitle">Sliding Gate Fittings</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="slidingGateFittingsContent" class="collapsible-content">
@@ -587,7 +587,7 @@
                 <!-- Gate Motors & Accessories Section -->
                 <div id="gateMotorsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="gateMotorsContent">
-                        <span>Gate Motors & Accessories (Material Only)</span>
+                        <span id="gateMotorsSectionTitle">Gate Motors & Accessories</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="gateMotorsContent" class="collapsible-content">
@@ -599,7 +599,7 @@
                 <!-- Pedestrian Gate Section -->
                 <div id="pedestrianGateSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="pedestrianGateContent">
-                        <span>Pedestrian Gate (Material Only)</span>
+                        <span id="pedestrianGateSectionTitle">Pedestrian Gate</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="pedestrianGateContent" class="collapsible-content">
@@ -611,7 +611,7 @@
                 <!-- Fence Panels Section -->
                 <div id="fencePanelsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="fencePanelsContent">
-                        <span>Fence Panels (Material Only)</span>
+                        <span id="fencePanelsSectionTitle">Fence Panels</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="fencePanelsContent" class="collapsible-content">
@@ -636,7 +636,7 @@
                 <!-- Powder Coating Section -->
                 <div id="powderCoatingSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="powderCoatingContent">
-                        <span>Powder Coating Costs</span>
+                        <span id="powderCoatingSectionTitle">Powder Coating</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="powderCoatingContent" class="collapsible-content">
@@ -647,10 +647,10 @@
                     </div>
                 </div>
 
-                <!-- Fabrication Costs Section -->
+                <!-- Fabrication Section -->
                 <div id="fabricationCostsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="fabricationContent">
-                        <span>Fabrication Costs</span>
+                        <span id="fabricationCostsSectionTitle">Fabrication</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="fabricationContent" class="collapsible-content">
@@ -661,10 +661,10 @@
                     </div>
                 </div>
 
-                <!-- Installation Costs Section -->
+                <!-- Installation Section -->
                 <div id="installationCostsSection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="installationContent">
-                        <span>Installation Costs</span>
+                        <span id="installationCostsSectionTitle">Installation</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="installationContent" class="collapsible-content">
@@ -675,19 +675,19 @@
                     </div>
                 </div>
 
-                <!-- Profit Summary -->
-                <div id="profitSummarySection" class="hidden">
+                <!-- Profit Summary - REMOVED AS PER USER REQUEST -->
+                <!-- <div id="profitSummarySection" class="hidden">
                     <button type="button" class="toggle-btn" data-target="profitSummaryContent">
-                        <span>Profit Summary</span>
+                        <span id="profitSummarySectionTitle">Profit Summary</span>
                         <span class="toggle-icon">▶</span>
                     </button>
                     <div id="profitSummaryContent" class="collapsible-content">
                         <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
                     </div>
-                </div>
+                </div> -->
 
             </div>
-            <p class="text-right text-lg font-bold mt-6 text-gray-800">Total Estimated Cost: <span id="totalCost" class="text-blue-600">$0.00</span></p>
+            <p class="text-right text-lg font-bold mt-6 text-gray-800">Quote Total: <span id="totalCost" class="text-blue-600">$0.00</span></p>
         </div>
     </div>
 
@@ -802,28 +802,34 @@
         const errorMessageDiv = document.getElementById('errorMessage');
 
         const postsSection = document.getElementById('postsSection');
+        const postsSectionTitle = document.getElementById('postsSectionTitle');
         const postsMaterialsDiv = document.getElementById('postsMaterials');
         const calculatedNumPostsDisplay = document.getElementById('calculatedNumPostsDisplay');
         const calculatedPostLengthDisplay = document.getElementById('calculatedPostLengthDisplay');
         const postsSubtotalSpan = document.getElementById('postsSubtotal');
 
         const slidingGateSection = document.getElementById('slidingGateSection');
+        const slidingGateSectionTitle = document.getElementById('slidingGateSectionTitle');
         const slidingGateMaterialsDiv = document.getElementById('slidingGateMaterials');
         const slidingGateSubtotalSpan = document.getElementById('slidingGateSubtotal');
 
         const slidingGateFittingsSection = document.getElementById('slidingGateFittingsSection');
+        const slidingGateFittingsSectionTitle = document.getElementById('slidingGateFittingsSectionTitle');
         const slidingGateFittingsMaterialsDiv = document.getElementById('slidingGateFittingsMaterials');
         const slidingGateFittingsSubtotalSpan = document.getElementById('slidingGateFittingsSubtotal');
 
         const gateMotorsSection = document.getElementById('gateMotorsSection');
+        const gateMotorsSectionTitle = document.getElementById('gateMotorsSectionTitle');
         const gateMotorsMaterialsDiv = document.getElementById('gateMotorsMaterials');
         const gateMotorsSubtotalSpan = document.getElementById('gateMotorsSubtotal');
 
         const pedestrianGateSection = document.getElementById('pedestrianGateSection');
+        const pedestrianGateSectionTitle = document.getElementById('pedestrianGateSectionTitle');
         const pedestrianGateMaterialsDiv = document.getElementById('pedestrianGateMaterials');
         const pedestrianGateSubtotalSpan = document.getElementById('pedestrianGateSubtotal');
 
         const fencePanelsSection = document.getElementById('fencePanelsSection');
+        const fencePanelsSectionTitle = document.getElementById('fencePanelsSectionTitle');
         const fencePanelsInfoDiv = document.getElementById('fencePanelsInfo');
         const fencePanelsMaterialsDiv = document.getElementById('fencePanelsMaterials'); // New element for panel materials
         const fencePanelsSubtotalSpan = document.getElementById('fencePanelsSubtotal');
@@ -837,18 +843,21 @@
         const panelHint = document.getElementById('panelHint');
 
         const powderCoatingSection = document.getElementById('powderCoatingSection');
+        const powderCoatingSectionTitle = document.getElementById('powderCoatingSectionTitle');
         const powderCoatingDetailsDiv = document.getElementById('powderCoatingDetails');
         const powderCoatingTotalSpan = document.getElementById('powderCoatingTotal');
 
         // Installation and Profit display elements
         const installationCostsSection = document.getElementById('installationCostsSection');
+        const installationCostsSectionTitle = document.getElementById('installationCostsSectionTitle');
         const installationDetailsDiv = document.getElementById('installationDetails');
         const installationTotalSpan = document.getElementById('installationTotal');
-        const profitSummarySection = document.getElementById('profitSummarySection');
-        const totalProfitDisplay = document.getElementById('totalProfitDisplay');
+        // const profitSummarySection = document.getElementById('profitSummarySection'); // Removed as per user request
+        // const totalProfitDisplay = document.getElementById('totalProfitDisplay'); // Removed as per user request
 
         // Fabrication display elements
         const fabricationCostsSection = document.getElementById('fabricationCostsSection');
+        const fabricationCostsSectionTitle = document.getElementById('fabricationCostsSectionTitle');
         const fabricationDetailsDiv = document.getElementById('fabricationDetails');
         const fabricationTotalSpan = document.getElementById('fabricationTotal');
 
@@ -1281,7 +1290,7 @@
             slidingGateFittingsSection.classList.add('hidden');
             gateMotorsSection.classList.add('hidden');
             installationCostsSection.classList.add('hidden');
-            profitSummarySection.classList.add('hidden');
+            // profitSummarySection.classList.add('hidden'); // Removed as per user request
             fabricationCostsSection.classList.add('hidden');
 
 
@@ -1342,7 +1351,7 @@
                 powderCoating: { baseCost: 0, breakdown: [] },
                 totalMaterialCostBeforeProfit: 0,
                 totalPowderCoatingBaseCost: 0,
-                totalProfit: 0,
+                totalProfit: 0, // This will still be calculated and added to the overall total
                 totalInstallationCost: 0,
                 totalFabricationCost: 0
             };
@@ -1992,6 +2001,7 @@
                     postsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 postsSubtotalSpan.textContent = `$${quoteSections.posts.materialCost.toFixed(2)}`;
+                postsSectionTitle.textContent = `Posts ($${quoteSections.posts.materialCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2003,6 +2013,7 @@
                     slidingGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 slidingGateSubtotalSpan.textContent = `$${quoteSections.slidingGate.materialCost.toFixed(2)}`;
+                slidingGateSectionTitle.textContent = `Sliding Gate ($${quoteSections.slidingGate.materialCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2014,6 +2025,7 @@
                     slidingGateFittingsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 slidingGateFittingsSubtotalSpan.textContent = `$${quoteSections.slidingGateFittings.materialCost.toFixed(2)}`;
+                slidingGateFittingsSectionTitle.textContent = `Sliding Gate Fittings ($${quoteSections.slidingGateFittings.materialCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2035,7 +2047,9 @@
                         gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                     });
                 }
-                gateMotorsSubtotalSpan.textContent = `$${(quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost).toFixed(2)}`;
+                const gateMotorsTotal = quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost;
+                gateMotorsSubtotalSpan.textContent = `$${gateMotorsTotal.toFixed(2)}`;
+                gateMotorsSectionTitle.textContent = `Gate Motors & Accessories ($${gateMotorsTotal.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2047,6 +2061,7 @@
                     pedestrianGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 pedestrianGateSubtotalSpan.textContent = `$${quoteSections.pedestrianGate.materialCost.toFixed(2)}`;
+                pedestrianGateSectionTitle.textContent = `Pedestrian Gate ($${quoteSections.pedestrianGate.materialCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2065,6 +2080,7 @@
                     fencePanelsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
                 });
                 fencePanelsSubtotalSpan.textContent = `$${quoteSections.fencePanels.materialCost.toFixed(2)}`;
+                fencePanelsSectionTitle.textContent = `Fence Panels ($${quoteSections.fencePanels.materialCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             } else {
                 fencePanelsSection.classList.add('hidden');
@@ -2078,6 +2094,7 @@
                     powderCoatingDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.cost);
                 });
                 powderCoatingTotalSpan.textContent = `$${quoteSections.totalPowderCoatingBaseCost.toFixed(2)}`;
+                powderCoatingSectionTitle.textContent = `Powder Coating ($${quoteSections.totalPowderCoatingBaseCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2086,6 +2103,7 @@
                 fabricationCostsSection.classList.remove('hidden');
                 fabricationDetailsDiv.innerHTML = formatLineItem("Fabrication Cost (per day)", currentFabricationCosts.FABRICATION_DAYS_PER_JOB, 'days @ $' + currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2) + '/day', quoteSections.totalFabricationCost);
                 fabricationTotalSpan.textContent = `$${quoteSections.totalFabricationCost.toFixed(2)}`;
+                fabricationCostsSectionTitle.textContent = `Fabrication ($${quoteSections.totalFabricationCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2108,15 +2126,16 @@
                     installationDetailsDiv.innerHTML += formatLineItem("Panel Installation (per meter)", totalPanelsLengthMeters.toFixed(2), 'meters', totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
                 }
                 installationTotalSpan.textContent = `$${quoteSections.totalInstallationCost.toFixed(2)}`;
+                installationCostsSectionTitle.textContent = `Installation ($${quoteSections.totalInstallationCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
-            // Profit Summary Display
-            if (quoteSections.totalProfit > 0) {
-                profitSummarySection.classList.remove('hidden');
-                totalProfitDisplay.textContent = `$${quoteSections.totalProfit.toFixed(2)}`;
-                hasContentToDisplay = true;
-            }
+            // Profit Summary Display - REMOVED AS PER USER REQUEST
+            // if (quoteSections.totalProfit > 0) {
+            //     profitSummarySection.classList.remove('hidden');
+            //     totalProfitDisplay.textContent = `$${quoteSections.totalProfit.toFixed(2)}`;
+            //     hasContentToDisplay = true;
+            // }
 
             // Only show results section if there's any content to display or a total cost
             if (hasContentToDisplay || finalOverallCost > 0) {
