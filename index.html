@@ -197,51 +197,6 @@
             transform: rotate(90deg);
         }
 
-        /* Collapsible section specific styles */
-        .collapsible-header {
-            background-color: #f0f4f8; /* Light gray background for headers */
-            color: #2c5282; /* Deep blue text */
-            padding: 1rem 1.25rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1.5rem; /* Space between collapsible sections */
-            border: 1px solid #e2e8f0;
-        }
-
-        .collapsible-header:hover {
-            background-color: #e2e8f0;
-        }
-
-        .collapsible-content {
-            padding: 1rem 1.25rem; /* Padding inside the collapsible content */
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-top: none; /* No top border, blends with header */
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
-            overflow: hidden;
-            max-height: 0; /* Initially hidden */
-            transition: max-height 0.3s ease-out, padding 0.3s ease-out; /* Smooth transition */
-        }
-
-        .collapsible-content.expanded {
-            max-height: 5000px; /* Sufficiently large to show all content */
-            padding-bottom: 1.5rem; /* More padding at bottom when expanded */
-        }
-
-        .collapsible-icon {
-            transition: transform 0.2s ease-in-out;
-        }
-
-        .collapsible-icon.rotate {
-            transform: rotate(90deg);
-        }
-
         /* Styling for the new multi-line item format */
         .material-line-item {
             display: flex;
@@ -575,148 +530,98 @@
 
                 <!-- Posts Section -->
                 <div id="postsSection" class="hidden">
-                    <div class="collapsible-header" data-target="postsContent">
-                        <h3>Posts (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
+                    <h3>Posts (Material Only)</h3>
+                    <div class="material-line-item">
+                        <div class="item-name">Calculated Number of Posts:</div>
+                        <div class="item-qty-unit" id="calculatedNumPostsDisplay">0</div>
                     </div>
-                    <div class="collapsible-content" id="postsContent">
-                        <div class="material-line-item">
-                            <div class="item-name">Calculated Number of Posts:</div>
-                            <div class="item-qty-unit" id="calculatedNumPostsDisplay">0</div>
-                        </div>
-                        <div class="material-line-item">
-                            <div class="item-name">Calculated Post Length:</div>
-                            <div class="item-qty-unit" id="calculatedPostLengthDisplay">0mm</div>
-                        </div>
-                        <div id="postsMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <div class="material-line-item">
+                        <div class="item-name">Calculated Post Length:</div>
+                        <div class="item-qty-unit" id="calculatedPostLengthDisplay">0mm</div>
                     </div>
+                    <div id="postsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Posts: <span id="postsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Sliding Gate Section -->
                 <div id="slidingGateSection" class="hidden">
-                    <div class="collapsible-header" data-target="slidingGateContent">
-                        <h3>Sliding Gate (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
-                    </div>
-                    <div class="collapsible-content" id="slidingGateContent">
-                        <div id="slidingGateMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate: <span id="slidingGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
-                    </div>
+                    <h3>Sliding Gate (Material Only)</h3>
+                    <div id="slidingGateMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate: <span id="slidingGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Sliding Gate Fittings Section -->
                 <div id="slidingGateFittingsSection" class="hidden">
-                    <div class="collapsible-header" data-target="slidingGateFittingsContent">
-                        <h3>Sliding Gate Fittings (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
-                    </div>
-                    <div class="collapsible-content" id="slidingGateFittingsContent">
-                        <div id="slidingGateFittingsMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate Fittings: <span id="slidingGateFittingsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
-                    </div>
+                    <h3>Sliding Gate Fittings (Material Only)</h3>
+                    <div id="slidingGateFittingsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Sliding Gate Fittings: <span id="slidingGateFittingsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Gate Motors & Accessories Section -->
                 <div id="gateMotorsSection" class="hidden">
-                    <div class="collapsible-header" data-target="gateMotorsContent">
-                        <h3>Gate Motors & Accessories (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
-                    </div>
-                    <div class="collapsible-content" id="gateMotorsContent">
-                        <div id="gateMotorsMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Gate Motors & Accessories: <span id="gateMotorsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
-                    </div>
+                    <h3>Gate Motors & Accessories (Material Only)</h3>
+                    <div id="gateMotorsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Gate Motors & Accessories: <span id="gateMotorsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Pedestrian Gate Section -->
                 <div id="pedestrianGateSection" class="hidden">
-                    <div class="collapsible-header" data-target="pedestrianGateContent">
-                        <h3>Pedestrian Gate (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
-                    </div>
-                    <div class="collapsible-content" id="pedestrianGateContent">
-                        <div id="pedestrianGateMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Pedestrian Gate: <span id="pedestrianGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
-                    </div>
+                    <h3>Pedestrian Gate (Material Only)</h3>
+                    <div id="pedestrianGateMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Pedestrian Gate: <span id="pedestrianGateSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Fence Panels Section -->
                 <div id="fencePanelsSection">
-                    <div class="collapsible-header" data-target="fencePanelsContent">
-                        <h3>Fence Panels (Material Only)</h3>
-                        <span class="collapsible-icon">▶</span>
+                    <h3>Fence Panels (Material Only)</h3>
+                    <div class="material-line-item">
+                        <div class="item-name">Number of Panels:</div>
+                        <div class="item-qty-unit" id="displayNumPanelsActual">0</div>
                     </div>
-                    <div class="collapsible-content" id="fencePanelsContent">
-                        <div class="material-line-item">
-                            <div class="item-name">Number of Panels:</div>
-                            <div class="item-qty-unit" id="displayNumPanelsActual">0</div>
-                        </div>
-                        <div class="material-line-item">
-                            <div class="item-name">Panel Length:</div>
-                            <div class="item-qty-unit" id="displayPanelLengthActual">0mm</div>
-                        </div>
-                        <div class="material-line-item">
-                            <div class="item-name">Total Linear Fence Length:</div>
-                            <div class="item-qty-unit" id="displayFenceLinearLengthActual">0mm</div>
-                        </div>
-                        <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
-                        <div id="fencePanelsMaterials" class="space-y-1"></div>
-                        <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
+                    <div class="material-line-item">
+                        <div class="item-name">Panel Length:</div>
+                        <div class="item-qty-unit" id="displayPanelLengthActual">0mm</div>
                     </div>
+                    <div class="material-line-item">
+                        <div class="item-name">Total Linear Fence Length:</div>
+                        <div class="item-qty-unit" id="displayFenceLinearLengthActual">0mm</div>
+                    </div>
+                    <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
+                    <div id="fencePanelsMaterials" class="space-y-1"></div>
+                    <p class="subtotal-line flex justify-between">Subtotal for Fence Panels: <span id="fencePanelsSubtotal" class="font-semibold text-gray-800">$0.00</span></p>
                 </div>
 
                 <!-- Powder Coating Section -->
                 <div id="powderCoatingSection" class="hidden">
-                    <div class="collapsible-header" data-target="powderCoatingContent">
-                        <h2 class="text-center">Powder Coating Costs</h2>
-                        <span class="collapsible-icon">▶</span>
+                    <h2>Powder Coating Costs</h2>
+                    <div id="powderCoatingDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Powder coating breakdown will be inserted here -->
                     </div>
-                    <div class="collapsible-content" id="powderCoatingContent">
-                        <div id="powderCoatingDetails" class="mt-4 text-gray-700 space-y-2">
-                            <!-- Powder coating breakdown will be inserted here -->
-                        </div>
-                        <p class="subtotal-line flex justify-between text-blue-700">Total Powder Coating Cost: <span id="powderCoatingTotal" class="font-semibold text-blue-800 text-lg">$0.00</span></p>
-                    </div>
+                    <p class="subtotal-line flex justify-between text-blue-700">Total Powder Coating Cost: <span id="powderCoatingTotal" class="font-semibold text-blue-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Fabrication Costs Section -->
                 <div id="fabricationCostsSection" class="hidden">
-                    <div class="collapsible-header" data-target="fabricationContent">
-                        <h2 class="text-center">Fabrication Costs</h2>
-                        <span class="collapsible-icon">▶</span>
+                    <h2>Fabrication Costs</h2>
+                    <div id="fabricationDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Fabrication breakdown will be inserted here -->
                     </div>
-                    <div class="collapsible-content" id="fabricationContent">
-                        <div id="fabricationDetails" class="mt-4 text-gray-700 space-y-2">
-                            <!-- Fabrication breakdown will be inserted here -->
-                        </div>
-                        <p class="subtotal-line flex justify-between text-orange-700">Total Fabrication Cost: <span id="fabricationTotal" class="font-semibold text-orange-800 text-lg">$0.00</span></p>
-                    </div>
+                    <p class="subtotal-line flex justify-between text-orange-700">Total Fabrication Cost: <span id="fabricationTotal" class="font-semibold text-orange-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Installation Costs Section -->
                 <div id="installationCostsSection" class="hidden">
-                    <div class="collapsible-header" data-target="installationContent">
-                        <h2 class="text-center">Installation Costs</h2>
-                        <span class="collapsible-icon">▶</span>
+                    <h2>Installation Costs</h2>
+                    <div id="installationDetails" class="mt-4 text-gray-700 space-y-2">
+                        <!-- Installation breakdown will be inserted here -->
                     </div>
-                    <div class="collapsible-content" id="installationContent">
-                        <div id="installationDetails" class="mt-4 text-gray-700 space-y-2">
-                            <!-- Installation breakdown will be inserted here -->
-                        </div>
-                        <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
-                    </div>
+                    <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
                 </div>
 
                 <!-- Profit Summary -->
                 <div id="profitSummarySection" class="hidden">
-                    <div class="collapsible-header" data-target="profitContent">
-                        <h2 class="text-center">Profit Summary</h2>
-                        <span class="collapsible-icon">▶</span>
-                    </div>
-                    <div class="collapsible-content" id="profitContent">
-                        <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
-                    </div>
+                    <h2>Profit Summary</h2>
+                    <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
                 </div>
 
             </div>
@@ -1283,8 +1188,8 @@
             errorMessageDiv.style.display = 'none'; // Ensure error message is hidden
             errorMessageDiv.textContent = '';
 
-            // Clear sections for new calculation and hide all collapsible sections
-            postsSection.classList.add('hidden');
+            // Clear sections for new calculation and ensure sections are visible by default
+            postsSection.classList.add('hidden'); // Initially hidden, will be shown if applicable
             slidingGateSection.classList.add('hidden');
             pedestrianGateSection.classList.add('hidden');
             fencePanelsSection.classList.add('hidden');
@@ -1298,7 +1203,6 @@
             postsMaterialsDiv.innerHTML = '';
             slidingGateMaterialsDiv.innerHTML = '';
             pedestrianGateMaterialsDiv.innerHTML = '';
-            // fencePanelsInfoDiv.innerHTML = ''; // This now contains fixed structure for panel info
             fencePanelsMaterialsDiv.innerHTML = ''; // Clear only the dynamic material list
             powderCoatingDetailsDiv.innerHTML = '';
             slidingGateFittingsMaterialsDiv.innerHTML = '';
@@ -1307,17 +1211,8 @@
             fabricationDetailsDiv.innerHTML = '';
             ctx.clearRect(0, 0, fenceLayoutCanvas.width, fenceLayoutCanvas.height); // Clear canvas
 
-            // Collapse all content sections
-            document.querySelectorAll('.collapsible-content').forEach(content => {
-                content.classList.remove('expanded');
-            });
-            document.querySelectorAll('.collapsible-icon').forEach(icon => {
-                icon.classList.remove('rotate');
-            });
-
-
             // Reset panel info display
-            displayNumPanels.classList.add('hidden'); // Original hidden ones
+            displayNumPanels.classList.add('hidden'); // Original hidden ones (these are in the input section)
             displayPanelLength.classList.add('hidden');
             displayFenceLinearLength.classList.add('hidden');
             panelHint.classList.remove('hidden');
@@ -2190,30 +2085,8 @@
             fabricationDaysPerJobInput.value = DEFAULT_FABRICATION_DAYS_PER_JOB;
         }
 
-        /**
-         * Toggles the visibility of a collapsible content section.
-         * @param {HTMLElement} header - The header element that was clicked.
-         */
-        function toggleCollapsibleSection(header) {
-            const targetId = header.dataset.target;
-            const content = document.getElementById(targetId);
-            const icon = header.querySelector('.collapsible-icon');
-
-            if (content.classList.contains('expanded')) {
-                content.classList.remove('expanded');
-                icon.classList.remove('rotate');
-            } else {
-                content.classList.add('expanded');
-                icon.classList.add('rotate');
-            }
-        }
-
-        // Add event listeners to all collapsible headers
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.collapsible-header').forEach(header => {
-                header.addEventListener('click', () => toggleCollapsibleSection(header));
-            });
-        });
+        // Removed the toggleCollapsibleSection function and related event listeners
+        // as the sections are now always expanded.
 
 
         // Initialize visibility on load and update panel info
