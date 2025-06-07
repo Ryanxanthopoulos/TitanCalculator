@@ -933,7 +933,7 @@
 
             // Add all full 2.4m panels
             for (let i = 0; i < numFullPanels; i++) {
-                individualPanelLengths.push(IDEAL_PANAL_2_4M);
+                individualPanelLengths.push(IDEAL_PANEL_2_4M);
             }
 
             // If there's a remainder, add it as the last panel
@@ -1707,4 +1707,322 @@
 
             // --- Fence Panels Material Calculation ---
             if (quoteSections.fencePanels.present && quoteSections.fencePanels.individualPanelLengths.length > 0) {
-                const fenceHeight = parseFloat(fenceHeightInput.value)
+                const fenceHeight = parseFloat(fenceHeightInput.value) || 0;
+                let currentFencePanelsMaterialCost = 0;
+
+                let panelRawMaterialsAggregated = {
+                    '40x40 SHS': 0, // Frame
+                    '50x10 Pickets': 0,
+                    'Picket Top': 0,
+                    '40x40 Rail Brackets': 0 // Material for brackets
+                };
+
+                quoteSections.fencePanels.individualPanelLengths.forEach(panelLength => {
+                    // 40x40 SHS: 2 lengths at the panel length for top/bottom rails
+                    panelRawMaterialsAggregated['40x40 SHS'] += (2 * panelLength);
+
+                    // 50x10 Pickets & Picket Tops
+                    const numPicketsPerPanel = Math.ceil(panelLength / 90);
+                    const picketHeight = fenceHeight;
+                    panelRawMaterialsAggregated['50x10 Pickets'] += (numPicketsPerPanel * picketHeight);
+                    panelRawMaterialsAggregated['Picket Top'] += numPicketsPerPanel;
+
+                    // Rail Brackets: 4 per panel (2 rails x 2 ends)
+                    panelRawMaterialsAggregated['40x40 Rail Brackets'] += 4;
+                });
+
+                for (const materialName in panelRawMaterialsAggregated) {
+                    const requiredAmount = panelRawMaterialsAggregated[materialName];
+                    const materialInfo = materialPriceList[materialName];
+
+                    if (requiredAmount > 0 && materialInfo) {
+                        let costForMaterial = 0;
+                        let displayAmount = 0;
+                        let unitType = '';
+
+                        if (materialName === 'Picket Top') {
+                            costForMaterial = requiredAmount * materialInfo.pricePerUnit;
+                            displayAmount = requiredAmount;
+                            unitType = 'pcs';
+                        } else if (materialName === '50x10 Pickets') {
+                            const numTotalPickets = requiredAmount / fenceHeight;
+                            const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            displayAmount = numTotalPickets.toFixed(0);
+                            unitType = `pcs (each ${fenceHeight.toFixed(0)}mm / Total ${requiredAmount.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
+                        } else if (materialName === '40x40 Rail Brackets') {
+                             costForMaterial = requiredAmount * materialInfo.pricePerUnit;
+                             displayAmount = requiredAmount;
+                             unitType = 'pcs';
+                        }
+                        else { // For 40x40 SHS
+                            const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
+                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit;
+                            displayAmount = unitsNeeded;
+                            unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
+                        }
+                        quoteSections.fencePanels.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
+                        currentFencePanelsMaterialCost += costForMaterial;
+                    }
+                }
+                quoteSections.fencePanels.materialCost = currentFencePanelsMaterialCost;
+                quoteSections.totalMaterialCostBeforeProfit += currentFencePanelsMaterialCost;
+                quoteSections.totalProfit += (currentFencePanelsMaterialCost * currentProfitMargins.PROFIT_PANELS_MATERIAL);
+
+
+                // Powder coating for fence panels
+                const totalPanelSurfaceAreaM2 = (quoteSections.fencePanels.totalLength / 1000) * (fenceHeight / 1000);
+                const powderCoatingCostForFencePanels = totalPanelSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+
+                quoteSections.powderCoating.breakdown.push({
+                    name: `Fence Panels Powder Coat`,
+                    displayAmount: totalPanelSurfaceAreaM2.toFixed(2),
+                    unitType: `sq meters`,
+                    cost: powderCoatingCostForFencePanels
+                });
+                quoteSections.powderCoating.baseCost += powderCoatingCostForFencePanels;
+
+                // Installation for fence panels
+                const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
+                quoteSections.totalInstallationCost += (totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
+
+                // Add miscellaneous powder coating (rail brackets)
+                const numRailBrackets = quoteSections.fencePanels.numPanels * 4;
+                if (numRailBrackets > 0) {
+                    const bracketsPowderCost = numRailBrackets * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    quoteSections.powderCoating.breakdown.push({
+                        name: '40x40 Rail Brackets Powder Coat',
+                        displayAmount: numRailBrackets,
+                        unitType: 'pcs',
+                        cost: bracketsPowderCost
+                    });
+                    quoteSections.powderCoating.baseCost += bracketsPowderCost;
+                }
+            }
+
+            // --- Fabrication Costs Calculation ---
+            if (overallBoundaryLength > 0 || quoteSections.slidingGate.present || quoteSections.pedestrianGate.present) {
+                const totalFabricationCost = currentFabricationCosts.FABRICATION_COST_PER_DAY * currentFabricationCosts.FABRICATION_DAYS_PER_JOB;
+                quoteSections.totalFabricationCost = totalFabricationCost;
+            }
+
+
+            // Final calculation for Powder Coating total profit
+            quoteSections.totalPowderCoatingBaseCost = quoteSections.powderCoating.baseCost;
+            quoteSections.totalProfit += (quoteSections.totalPowderCoatingBaseCost * currentProfitMargins.PROFIT_POWDER_COATING);
+
+
+            // --- Final Calculations and Display ---
+            const finalOverallCost = quoteSections.totalMaterialCostBeforeProfit + quoteSections.totalPowderCoatingBaseCost + quoteSections.totalProfit + quoteSections.totalInstallationCost + quoteSections.totalFabricationCost;
+
+
+            let hasContentToDisplay = false;
+
+            // Posts Section Display
+            if (quoteSections.posts.materialCost > 0 || quoteSections.posts.numCalculated > 0) {
+                postsSection.classList.remove('hidden');
+                calculatedNumPostsDisplay.textContent = quoteSections.posts.numCalculated;
+                // Update calculatedPostLengthDisplay here, as it's now the primary display location
+                calculatedPostLengthDisplay.textContent = `${quoteSections.posts.length.toFixed(0)}mm`;
+                postsMaterialsDiv.innerHTML = '';
+                quoteSections.posts.materialsBreakdown.forEach(mat => {
+                    postsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                postsSubtotalSpan.textContent = `$${quoteSections.posts.materialCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Sliding Gate Section Display
+            if (quoteSections.slidingGate.present) {
+                slidingGateSection.classList.remove('hidden');
+                slidingGateMaterialsDiv.innerHTML = '';
+                quoteSections.slidingGate.materialsBreakdown.forEach(mat => {
+                    slidingGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                slidingGateSubtotalSpan.textContent = `$${quoteSections.slidingGate.materialCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Sliding Gate Fittings Section Display
+            if (quoteSections.slidingGateFittings.present) {
+                slidingGateFittingsSection.classList.remove('hidden');
+                slidingGateFittingsMaterialsDiv.innerHTML = '';
+                quoteSections.slidingGateFittings.materialsBreakdown.forEach(mat => {
+                    slidingGateFittingsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                slidingGateFittingsSubtotalSpan.textContent = `$${quoteSections.slidingGateFittings.materialCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Gate Motors & Accessories Section Display
+            if (quoteSections.gateMotors.present) {
+                gateMotorsSection.classList.remove('hidden');
+                gateMotorsMaterialsDiv.innerHTML = '';
+                // Display motor first
+                quoteSections.gateMotors.motorBreakdown.forEach(mat => {
+                    gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                // Then hardware
+                if (quoteSections.gateMotors.hardwareBreakdown.length > 0) {
+                     if (quoteSections.gateMotors.motorBreakdown.length > 0) {
+                         gateMotorsMaterialsDiv.innerHTML += `<div class="font-semibold text-gray-700 mt-2">Add-ons:</div>`;
+                     }
+                    quoteSections.gateMotors.hardwareBreakdown.forEach(mat => {
+                        gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    });
+                }
+                gateMotorsSubtotalSpan.textContent = `$${(quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost).toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Pedestrian Gate Section Display
+            if (quoteSections.pedestrianGate.present) {
+                pedestrianGateSection.classList.remove('hidden');
+                pedestrianGateMaterialsDiv.innerHTML = '';
+                quoteSections.pedestrianGate.materialsBreakdown.forEach(mat => {
+                    pedestrianGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                pedestrianGateSubtotalSpan.textContent = `$${quoteSections.pedestrianGate.materialCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Fence Panels Section Display
+            if (quoteSections.fencePanels.present) {
+                fencePanelsSection.classList.remove('hidden');
+                const panelDisplayStringForResults = getPanelDisplayString(quoteSections.fencePanels.individualPanelLengths, IDEAL_PANEL_2_4M);
+
+                fencePanelsInfoDiv.innerHTML = `
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100">
+                        <span class="font-normal text-gray-700">Number of Panels:</span>
+                        <span class="text-gray-600 font-semibold">${quoteSections.fencePanels.numPanels}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                        <span class="font-normal text-gray-700">Panel Length:</span>
+                        <span class="text-gray-600 font-semibold">${panelDisplayStringForResults}</span>
+                    </div>
+                    <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                        <span class="font-normal text-gray-700">Total Linear Fence Length:</span>
+                        <span class="text-gray-600 font-semibold">${quoteSections.fencePanels.totalLength.toFixed(0)}mm</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-700 mt-4 mb-2">Panel Materials:</h4>
+                `;
+                quoteSections.fencePanels.materialsBreakdown.forEach(mat => {
+                    fencePanelsInfoDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                });
+                fencePanelsSubtotalSpan.textContent = `$${quoteSections.fencePanels.materialCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            } else {
+                fencePanelsSection.classList.add('hidden');
+            }
+
+            // Powder Coating Section Display
+            if (quoteSections.totalPowderCoatingBaseCost > 0) {
+                powderCoatingSection.classList.remove('hidden');
+                powderCoatingDetailsDiv.innerHTML = '';
+                quoteSections.powderCoating.breakdown.forEach(item => {
+                    powderCoatingDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.cost);
+                });
+                powderCoatingTotalSpan.textContent = `$${quoteSections.totalPowderCoatingBaseCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Fabrication Costs Section Display
+            if (quoteSections.totalFabricationCost > 0) {
+                fabricationCostsSection.classList.remove('hidden');
+                fabricationDetailsDiv.innerHTML = formatLineItem("Fabrication Cost", currentFabricationCosts.FABRICATION_DAYS_PER_JOB, 'days @ $' + currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2) + '/day', quoteSections.totalFabricationCost);
+                fabricationTotalSpan.textContent = `$${quoteSections.totalFabricationCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+
+            // Installation Costs Section Display
+            if (quoteSections.totalInstallationCost > 0) {
+                installationCostsSection.classList.remove('hidden');
+                installationDetailsDiv.innerHTML = '';
+                if (overallBoundaryLength > 0) {
+                    installationDetailsDiv.innerHTML += formatLineItem("Post Installation (per job)", 1, 'job', currentInstallationCosts.INSTALL_POSTS_FIXED);
+                }
+                if (quoteSections.slidingGate.present) {
+                    installationDetailsDiv.innerHTML += formatLineItem("Sliding Gate Installation", 1, 'job', currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED);
+                }
+                if (quoteSections.pedestrianGate.present) {
+                    installationDetailsDiv.innerHTML += formatLineItem("Pedestrian Gate Installation", 1, 'job', currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED);
+                }
+                if (quoteSections.fencePanels.present) {
+                    const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
+                    installationDetailsDiv.innerHTML += formatLineItem("Panel Installation", totalPanelsLengthMeters.toFixed(2), 'meters', totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
+                }
+                installationTotalSpan.textContent = `$${quoteSections.totalInstallationCost.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Profit Summary Display
+            if (quoteSections.totalProfit > 0) {
+                profitSummarySection.classList.remove('hidden');
+                totalProfitDisplay.textContent = `$${quoteSections.totalProfit.toFixed(2)}`;
+                hasContentToDisplay = true;
+            }
+
+            // Only show results section if there's any content to display or a total cost
+            if (hasContentToDisplay || finalOverallCost > 0) {
+                resultsDiv.classList.remove('hidden');
+
+                // Prepare data for drawing
+                const layoutData = {
+                    overallLength: overallBoundaryLength,
+                    slidingGate: {
+                        present: quoteSections.slidingGate.present,
+                        length: quoteSections.slidingGate.length
+                    },
+                    pedestrianGate: {
+                        present: quoteSections.pedestrianGate.present,
+                        width: quoteSections.pedestrianGate.width
+                    },
+                    panels: {
+                        present: quoteSections.fencePanels.present,
+                        numPanels: quoteSections.fencePanels.numPanels,
+                        individualPanelLengths: quoteSections.fencePanels.individualPanelLengths
+                    },
+                };
+                drawFenceLayout(layoutData);
+
+            } else {
+                showMessageBox("No Items Selected", "Please enter details for at least one section (Overall Boundary or Gates) to generate a quote.");
+            }
+
+            totalCostSpan.textContent = `$${finalOverallCost.toFixed(2)}`;
+        });
+
+        /**
+         * Initializes the advanced settings input fields with default values.
+         */
+        function initializeAdvancedSettings() {
+            // Use Math.round to ensure whole numbers for profit percentages
+            profitSlidingGateMaterialInput.value = Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
+            profitPedestrianGateMaterialInput.value = Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
+            profitPanelsMaterialInput.value = Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
+            profitPostsCapsBracketsMaterialInput.value = Math.round(DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL * 100);
+            profitPowderCoatingInput.value = Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
+            profitGateMotorsInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
+            profitGateMotorHardwareInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+
+            installPostsFixedInput.value = DEFAULT_INSTALL_POSTS_FIXED;
+            installSlidingGateFixedInput.value = DEFAULT_INSTALL_SLIDING_GATE_FIXED;
+            installPedestrianGateFixedInput.value = DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
+            installPanelsPerMeterInput.value = DEFAULT_INSTALL_PANELS_PER_METER;
+
+            fabricationCostPerDayInput.value = DEFAULT_FABRICATION_COST_PER_DAY;
+            fabricationDaysPerJobInput.value = DEFAULT_FABRICATION_DAYS_PER_JOB;
+        }
+
+
+        // Initialize visibility on load and update panel info
+        toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
+        toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
+        toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
+        updateCalculatedPostLength(); // Call once on load to set initial post length display (even if hidden, for internal value)
+        updateFencePanelInfo(); // Call once on load to show initial panel info
+        initializeAdvancedSettings(); // Initialize advanced settings inputs
+    </script>
+</body>
+</html>
