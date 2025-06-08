@@ -178,6 +178,8 @@
             border: 1px solid #d1d5db; /* Soft border */
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             margin-top: 1.5rem; /* Added margin-top for toggle buttons */
+            position: relative; /* Essential for z-index to work */
+            z-index: 10; /* Ensure button is on top */
         }
         .toggle-btn:hover {
             background-color: #e2e8f0; /* Slightly darker on hover */
@@ -389,12 +391,12 @@
                             <input type="checkbox" name="antenna" id="antenna" class="form-checkbox text-blue-600">
                             <span class="ml-2 text-gray-700">Antenna</span>
                         </label>
-                        <div class="flex items-center space-x-2">
-                            <label class="inline-flex items-center">
+                        <div class="flex items-center space-x-2 flex-nowrap"> <!-- Added flex-nowrap -->
+                            <label class="inline-flex items-center flex-shrink-0"> <!-- Added flex-shrink-0 -->
                                 <input type="checkbox" name="ziggyRemote" id="ziggyRemote" class="form-checkbox text-blue-600">
                                 <span class="ml-2 text-gray-700">Ziggy Remote</span>
                             </label>
-                            <input type="number" id="ziggyRemoteQty" name="ziggyRemoteQty" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="Qty" min="1" value="1" disabled>
+                            <input type="number" id="ziggyRemoteQty" name="ziggyRemoteQty" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-sm flex-shrink-0" placeholder="Qty" min="1" value="1" disabled> <!-- Changed w-20 to w-16 and added flex-shrink-0 -->
                         </div>
                     </div>
                 </div>
@@ -451,7 +453,7 @@
 
             <!-- Advanced Settings Section -->
             <div class="bg-gray-100 p-4 rounded-lg shadow-inner mt-6">
-                <button type="button" class="toggle-btn" id="toggleAdvancedSettings">
+                <button type="button" class="toggle-btn" id="toggleAdvancedSettings" data-target="advancedSettingsContent">
                     <span>Advanced Settings</span>
                     <span class="toggle-icon">▶</span>
                 </button>
@@ -674,17 +676,6 @@
                         <p class="subtotal-line flex justify-between text-green-700">Total Installation Cost: <span id="installationTotal" class="font-semibold text-green-800 text-lg">$0.00</span></p>
                     </div>
                 </div>
-
-                <!-- Profit Summary - REMOVED AS PER USER REQUEST -->
-                <!-- <div id="profitSummarySection" class="hidden">
-                    <button type="button" class="toggle-btn" data-target="profitSummaryContent">
-                        <span id="profitSummarySectionTitle">Profit Summary</span>
-                        <span class="toggle-icon">▶</span>
-                    </button>
-                    <div id="profitSummaryContent" class="collapsible-content">
-                        <p class="subtotal-line flex justify-between text-purple-700">Total Calculated Profit: <span id="totalProfitDisplay" class="font-semibold text-purple-800 text-lg">$0.00</span></p>
-                    </div>
-                </div> -->
 
             </div>
             <p class="text-right text-lg font-bold mt-6 text-gray-800">Quote Total: <span id="totalCost" class="text-blue-600">$0.00</span></p>
@@ -968,6 +959,12 @@
             const targetId = toggleBtn.dataset.target;
             const contentDiv = document.getElementById(targetId);
             const iconSpan = toggleBtn.querySelector('.toggle-icon');
+
+            // Add a null check here to prevent errors if contentDiv is null
+            if (!contentDiv) {
+                console.error(`Collapsible content div with ID '${targetId}' not found.`);
+                return; // Exit the function if the element is not found
+            }
 
             if (contentDiv.classList.contains('expanded')) {
                 contentDiv.classList.remove('expanded');
@@ -1290,7 +1287,6 @@
             slidingGateFittingsSection.classList.add('hidden');
             gateMotorsSection.classList.add('hidden');
             installationCostsSection.classList.add('hidden');
-            // profitSummarySection.classList.add('hidden'); // Removed as per user request
             fabricationCostsSection.classList.add('hidden');
 
 
@@ -1348,10 +1344,8 @@
                 gateMotors: { motorMaterialCost: 0, motorBreakdown: [], hardwareMaterialCost: 0, hardwareBreakdown: [], present: false },
                 pedestrianGate: { materialCost: 0, materialsBreakdown: [], totalFrameLength: 0, present: false, width: 0, hingeType: '', latchType: '' },
                 fencePanels: { materialCost: 0, materialsBreakdown: [], totalLength: 0, numPanels: 0, individualPanelLengths: [], present: false },
-                powderCoating: { baseCost: 0, breakdown: [] },
-                totalMaterialCostBeforeProfit: 0,
-                totalPowderCoatingBaseCost: 0,
-                totalProfit: 0, // This will still be calculated and added to the overall total
+                powderCoating: { baseCost: 0, breakdown: [] }, // baseCost will now store profit-included cost
+                totalMaterialCostWithProfit: 0, // This will be the sum of all material costs including their respective profits
                 totalInstallationCost: 0,
                 totalFabricationCost: 0
             };
@@ -1391,16 +1385,16 @@
                     quoteSections.gateMotors.present = true;
                     const motorInfo = materialPriceList[motorType];
                     if (motorInfo) {
-                        const motorCost = motorInfo.pricePerUnit;
-                        quoteSections.gateMotors.motorMaterialCost += motorCost;
+                        const rawMotorCost = motorInfo.pricePerUnit;
+                        const motorCostWithProfit = rawMotorCost * (1 + currentProfitMargins.PROFIT_GATE_MOTORS);
+                        quoteSections.gateMotors.motorMaterialCost += motorCostWithProfit;
                         quoteSections.gateMotors.motorBreakdown.push({
                             name: motorType,
                             displayAmount: 1,
                             unitType: 'unit',
-                            cost: motorCost
+                            cost: motorCostWithProfit
                         });
-                        quoteSections.totalMaterialCostBeforeProfit += motorCost;
-                        quoteSections.totalProfit += (motorCost * currentProfitMargins.PROFIT_GATE_MOTORS);
+                        quoteSections.totalMaterialCostWithProfit += motorCostWithProfit;
                     } else {
                         errors.push(`Price information for ${motorType} not found.`);
                     }
@@ -1411,16 +1405,16 @@
                         if (gearRackInfo) {
                             const requiredRackLengthMM = quoteSections.slidingGate.length; // 1m per meter of gate
                             const rackUnitsNeeded = calculateUnitsNeeded(requiredRackLengthMM, gearRackInfo.unitLength);
-                            const costOfRack = rackUnitsNeeded * gearRackInfo.pricePerUnit;
-                            quoteSections.gateMotors.hardwareMaterialCost += costOfRack;
+                            const rawCostOfRack = rackUnitsNeeded * gearRackInfo.pricePerUnit;
+                            const costOfRackWithProfit = rawCostOfRack * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.gateMotors.hardwareMaterialCost += costOfRackWithProfit;
                             quoteSections.gateMotors.hardwareBreakdown.push({
                                 name: 'Gear rack',
                                 displayAmount: rackUnitsNeeded,
                                 unitType: `x ${gearRackInfo.unitLength/1000}m lengths (Total ${requiredRackLengthMM.toFixed(0)}mm)`,
-                                cost: costOfRack
+                                cost: costOfRackWithProfit
                             });
-                            quoteSections.totalMaterialCostBeforeProfit += costOfRack;
-                            quoteSections.totalProfit += (costOfRack * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.totalMaterialCostWithProfit += costOfRackWithProfit;
                         } else {
                             errors.push('Price information for Gear rack not found.');
                         }
@@ -1432,16 +1426,16 @@
                     if (batteryBackupCheckbox.checked) {
                         const batteryInfo = materialPriceList['Battery backup'];
                         if (batteryInfo) {
-                            const batteryCost = batteryInfo.pricePerUnit;
-                            quoteSections.gateMotors.hardwareMaterialCost += batteryCost;
+                            const rawBatteryCost = batteryInfo.pricePerUnit;
+                            const batteryCostWithProfit = rawBatteryCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.gateMotors.hardwareMaterialCost += batteryCostWithProfit;
                             quoteSections.gateMotors.hardwareBreakdown.push({
                                 name: 'Battery backup',
                                 displayAmount: 1,
                                 unitType: 'pcs',
-                                cost: batteryCost
+                                cost: batteryCostWithProfit
                             });
-                            quoteSections.totalMaterialCostBeforeProfit += batteryCost;
-                            quoteSections.totalProfit += (batteryCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.totalMaterialCostWithProfit += batteryCostWithProfit;
                         } else {
                             errors.push('Price information for Battery backup not found.');
                         }
@@ -1451,16 +1445,16 @@
                     if (antennaCheckbox.checked) {
                         const antennaInfo = materialPriceList['Antenna'];
                         if (antennaInfo) {
-                            const antennaCost = antennaInfo.pricePerUnit;
-                            quoteSections.gateMotors.hardwareMaterialCost += antennaCost;
+                            const rawAntennaCost = antennaInfo.pricePerUnit;
+                            const antennaCostWithProfit = rawAntennaCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.gateMotors.hardwareMaterialCost += antennaCostWithProfit;
                             quoteSections.gateMotors.hardwareBreakdown.push({
                                 name: 'Antenna',
                                 displayAmount: 1,
                                 unitType: 'pcs',
-                                cost: antennaCost
+                                cost: antennaCostWithProfit
                             });
-                            quoteSections.totalMaterialCostBeforeProfit += antennaCost;
-                            quoteSections.totalProfit += (antennaCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.totalMaterialCostWithProfit += antennaCostWithProfit;
                         } else {
                             errors.push('Price information for Antenna not found.');
                         }
@@ -1471,16 +1465,16 @@
                         const ziggyRemoteQty = parseInt(ziggyRemoteQtyInput.value) || 1;
                         const ziggyRemoteInfo = materialPriceList['Ziggy Remote'];
                         if (ziggyRemoteInfo) {
-                            const ziggyRemoteCost = ziggyRemoteQty * ziggyRemoteInfo.pricePerUnit;
-                            quoteSections.gateMotors.hardwareMaterialCost += ziggyRemoteCost;
+                            const rawZiggyRemoteCost = ziggyRemoteQty * ziggyRemoteInfo.pricePerUnit;
+                            const ziggyRemoteCostWithProfit = rawZiggyRemoteCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.gateMotors.hardwareMaterialCost += ziggyRemoteCostWithProfit;
                             quoteSections.gateMotors.hardwareBreakdown.push({
                                 name: 'Ziggy Remote',
                                 displayAmount: ziggyRemoteQty,
                                 unitType: 'pcs',
-                                cost: ziggyRemoteCost
+                                cost: ziggyRemoteCostWithProfit
                             });
-                            quoteSections.totalMaterialCostBeforeProfit += ziggyRemoteCost;
-                            quoteSections.totalProfit += (ziggyRemoteCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                            quoteSections.totalMaterialCostWithProfit += ziggyRemoteCostWithProfit;
                         } else {
                             errors.push('Price information for Ziggy Remote not found.');
                         }
@@ -1573,48 +1567,50 @@
                 if (postInfo) {
                     const totalRequiredPostLength = quoteSections.posts.numCalculated * quoteSections.posts.length;
                     const postUnitsNeeded = calculateUnitsNeeded(totalRequiredPostLength, postInfo.unitLength);
-                    const costOfPosts = postUnitsNeeded * postInfo.pricePerUnit;
+                    const rawCostOfPosts = postUnitsNeeded * postInfo.pricePerUnit;
+                    const costOfPostsWithProfit = rawCostOfPosts * (1 + currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
 
                     quoteSections.posts.materialsBreakdown.push({
                         name: postTypeName,
                         displayAmount: postUnitsNeeded,
                         unitType: `x ${postInfo.unitLength}mm lengths (Total ${totalRequiredPostLength.toFixed(0)}mm for ${quoteSections.posts.numCalculated} posts @ ${quoteSections.posts.length.toFixed(0)}mm each)`,
-                        cost: costOfPosts
+                        cost: costOfPostsWithProfit
                     });
-                    currentPostMaterialCost += costOfPosts;
+                    currentPostMaterialCost += costOfPostsWithProfit;
 
                     // Add material cost for caps
                     const capType = postSize === 65 ? '65x65 Caps' : '90x90 Caps';
                     const capInfo = materialPriceList[capType];
                     if (capInfo) {
-                        const capsMaterialCost = quoteSections.posts.numCalculated * capInfo.pricePerUnit;
+                        const rawCapsMaterialCost = quoteSections.posts.numCalculated * capInfo.pricePerUnit;
+                        const capsMaterialCostWithProfit = rawCapsMaterialCost * (1 + currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
                         quoteSections.posts.materialsBreakdown.push({
                             name: capType,
                             displayAmount: quoteSections.posts.numCalculated,
                             unitType: 'pcs',
-                            cost: capsMaterialCost
+                            cost: capsMaterialCostWithProfit
                         });
-                        currentPostMaterialCost += capsMaterialCost;
+                        currentPostMaterialCost += capsMaterialCostWithProfit;
                     } else {
                         errors.push(`Price information for ${capType} not found.`);
                     }
 
                     quoteSections.posts.materialCost = currentPostMaterialCost;
-                    quoteSections.totalMaterialCostBeforeProfit += currentPostMaterialCost;
-                    quoteSections.totalProfit += (currentPostMaterialCost * currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
+                    quoteSections.totalMaterialCostWithProfit += currentPostMaterialCost;
 
                     // Powder coating for posts
                     const totalPostLengthMeters = totalRequiredPostLength / 1000;
                     const powderCoatingRateForPost = powderCoatingRates[postTypeName];
-                    const powderCoatingCostForPosts = totalPostLengthMeters * powderCoatingRateForPost;
+                    const rawPowderCoatingCostForPosts = totalPostLengthMeters * powderCoatingRateForPost;
+                    const powderCoatingCostForPostsWithProfit = rawPowderCoatingCostForPosts * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                     quoteSections.powderCoating.breakdown.push({
                         name: `${postTypeName} Powder Coat`,
                         displayAmount: totalPostLengthMeters.toFixed(2),
                         unitType: `meters`,
-                        cost: powderCoatingCostForPosts
+                        cost: powderCoatingCostForPostsWithProfit
                     });
-                    quoteSections.powderCoating.baseCost += powderCoatingCostForPosts;
+                    quoteSections.powderCoating.baseCost += powderCoatingCostForPostsWithProfit;
                 } else {
                     errors.push(`Price information for ${postTypeName} not found.`);
                 }
@@ -1657,38 +1653,39 @@
                     const requiredAmount = slidingGateRawMaterials[materialName];
                     const materialInfo = materialPriceList[materialName];
                     if (requiredAmount > 0 && materialInfo) {
-                        let costForMaterial = 0; let displayAmount = 0; let unitType = '';
+                        let rawCostForMaterial = 0; let displayAmount = 0; let unitType = '';
                         if (materialName === 'Picket Top') {
-                            costForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
+                            rawCostForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
                         } else if (materialName === '50x10 Pickets') {
                             const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            rawCostForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
                             displayAmount = numPicketsSliding;
                             unitType = `pcs (each ${picketHeightSliding.toFixed(0)}mm / Total ${totalPicketLengthSliding.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
                         }
                         else {
                             const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
+                            rawCostForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
-                        quoteSections.slidingGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
-                        currentSlidingGateMaterialCost += costForMaterial;
+                        const costForMaterialWithProfit = rawCostForMaterial * (1 + currentProfitMargins.PROFIT_SLIDING_GATE_MATERIAL);
+                        quoteSections.slidingGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        currentSlidingGateMaterialCost += costForMaterialWithProfit;
                     }
                 }
                 quoteSections.slidingGate.materialCost = currentSlidingGateMaterialCost;
-                quoteSections.totalMaterialCostBeforeProfit += currentSlidingGateMaterialCost;
-                quoteSections.totalProfit += (currentSlidingGateMaterialCost * currentProfitMargins.PROFIT_SLIDING_GATE_MATERIAL);
+                quoteSections.totalMaterialCostWithProfit += currentSlidingGateMaterialCost;
 
                 // Powder coating for sliding gate
                 const gateSurfaceAreaM2 = (sGateLength / 1000) * (sGateHeight / 1000);
-                const powderCoatingCostForSlidingGate = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const rawPowderCoatingCostForSlidingGate = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const powderCoatingCostForSlidingGateWithProfit = rawPowderCoatingCostForSlidingGate * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Sliding Gate Frame Powder Coat`,
                     displayAmount: gateSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForSlidingGate
+                    cost: powderCoatingCostForSlidingGateWithProfit
                 });
-                quoteSections.powderCoating.baseCost += powderCoatingCostForSlidingGate;
+                quoteSections.powderCoating.baseCost += powderCoatingCostForSlidingGateWithProfit;
 
                 // Installation for sliding gate
                 quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED;
@@ -1699,35 +1696,37 @@
                     let currentSlidingGateFittingsMaterialCost = 0;
 
                     const fittingItems = [
-                        { name: 'Guide Rollers', qty: 2, key: 'Guide Rollers', powderCoat: false },
-                        { name: 'Guide Bracket', qty: 1, key: 'Guide Bracket', powderCoat: true },
-                        { name: '100x50 Cap', qty: 2, key: '100x50 Cap', powderCoat: false },
-                        { name: 'Gate Wheel', qty: 2, key: 'Gate Wheel', powderCoat: false },
-                        { name: '50mm Catch', qty: 1, key: '50mm Catch', powderCoat: true },
+                        { name: 'Guide Rollers', qty: 2, key: 'Guide Rollers', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
+                        { name: 'Guide Bracket', qty: 1, key: 'Guide Bracket', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true },
+                        { name: '100x50 Cap', qty: 2, key: '100x50 Cap', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
+                        { name: 'Gate Wheel', qty: 2, key: 'Gate Wheel', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
+                        { name: '50mm Catch', qty: 1, key: '50mm Catch', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true },
                     ];
 
                     fittingItems.forEach(item => {
                         const materialInfo = materialPriceList[item.key];
                         if (materialInfo) {
-                            const cost = item.qty * materialInfo.pricePerUnit;
+                            const rawCost = item.qty * materialInfo.pricePerUnit;
+                            const costWithProfit = rawCost * (1 + item.profitMargin);
                             quoteSections.slidingGateFittings.materialsBreakdown.push({
                                 name: item.name,
                                 displayAmount: item.qty,
                                 unitType: 'pcs',
-                                cost: cost
+                                cost: costWithProfit
                             });
-                            currentSlidingGateFittingsMaterialCost += cost;
+                            currentSlidingGateFittingsMaterialCost += costWithProfit;
 
                             // Add powder coating cost if applicable
                             if (item.powderCoat) {
-                                const powderCoatCost = item.qty * powderCoatingRates['Per_Piece_Powder_Coat'];
+                                const rawPowderCoatCost = item.qty * powderCoatingRates['Per_Piece_Powder_Coat'];
+                                const powderCoatCostWithProfit = rawPowderCoatCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                                 quoteSections.powderCoating.breakdown.push({
                                     name: `${item.name} Powder Coat`,
                                     displayAmount: item.qty,
                                     unitType: 'pcs',
-                                    cost: powderCoatCost
+                                    cost: powderCoatCostWithProfit
                                 });
-                                quoteSections.powderCoating.baseCost += powderCoatCost;
+                                quoteSections.powderCoating.baseCost += powderCoatCostWithProfit;
                             }
 
                         } else {
@@ -1740,21 +1739,21 @@
                     if (gateTrackInfo) {
                         const requiredTrackLengthMM = Math.max(0, (sGateLength - 2000)) * 2;
                         const trackUnitsNeeded = calculateUnitsNeeded(requiredTrackLengthMM, gateTrackInfo.unitLength);
-                        const costOfTrack = trackUnitsNeeded * gateTrackInfo.pricePerUnit;
+                        const rawCostOfTrack = trackUnitsNeeded * gateTrackInfo.pricePerUnit;
+                        const costOfTrackWithProfit = rawCostOfTrack * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
                         quoteSections.slidingGateFittings.materialsBreakdown.push({
                             name: 'Gate Track',
                             displayAmount: trackUnitsNeeded,
                             unitType: `x ${gateTrackInfo.unitLength/1000}m lengths (Total ${requiredTrackLengthMM.toFixed(0)}mm)`,
-                            cost: costOfTrack
+                            cost: costOfTrackWithProfit
                         });
-                        currentSlidingGateFittingsMaterialCost += costOfTrack;
+                        currentSlidingGateFittingsMaterialCost += costOfTrackWithProfit;
                     } else {
                         errors.push('Price information for Gate Track not found.');
                     }
 
                     quoteSections.slidingGateFittings.materialCost = currentSlidingGateFittingsMaterialCost;
-                    quoteSections.totalMaterialCostBeforeProfit += currentSlidingGateFittingsMaterialCost;
-                    quoteSections.totalProfit += (currentSlidingGateFittingsMaterialCost * currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
+                    quoteSections.totalMaterialCostWithProfit += currentSlidingGateFittingsMaterialCost;
                 }
             }
 
@@ -1772,27 +1771,29 @@
                 const latchInfo = materialPriceList[chosenLatchType];
 
                 if (hingeInfo) {
-                    const hingesCost = hingeInfo.pricePerUnit * 2;
+                    const rawHingesCost = hingeInfo.pricePerUnit * 2;
+                    const hingesCostWithProfit = rawHingesCost * (1 + currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
                     quoteSections.pedestrianGate.materialsBreakdown.push({
                         name: chosenHingeType,
                         displayAmount: 2,
                         unitType: 'pcs',
-                        cost: hingesCost
+                        cost: hingesCostWithProfit
                     });
-                    currentPedestrianGateMaterialCost += hingesCost;
+                    currentPedestrianGateMaterialCost += hingesCostWithProfit;
                 } else {
                     errors.push(`Price information for ${chosenHingeType} not found.`);
                 }
 
                 if (latchInfo) {
-                    const latchCost = latchInfo.pricePerUnit * 1;
+                    const rawLatchCost = latchInfo.pricePerUnit * 1;
+                    const latchCostWithProfit = rawLatchCost * (1 + currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
                     quoteSections.pedestrianGate.materialsBreakdown.push({
                         name: chosenLatchType,
                         displayAmount: 1,
                         unitType: 'pcs',
-                        cost: latchCost
+                        cost: latchCostWithProfit
                     });
-                    currentPedestrianGateMaterialCost += latchCost;
+                    currentPedestrianGateMaterialCost += latchCostWithProfit;
                 } else {
                     errors.push(`Price information for ${chosenLatchType} not found.`);
                 }
@@ -1819,59 +1820,62 @@
                     const requiredAmount = pedestrianGateRawMaterials[materialName];
                     const materialInfo = materialPriceList[materialName];
                     if (requiredAmount > 0 && materialInfo) {
-                        let costForMaterial = 0; let displayAmount = 0; let unitType = '';
+                        let rawCostForMaterial = 0; let displayAmount = 0; let unitType = '';
                         if (materialName === 'Picket Top') {
-                            costForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
+                            rawCostForMaterial = requiredAmount * materialInfo.pricePerUnit; displayAmount = requiredAmount; unitType = 'pcs';
                         } else if (materialName === '50x10 Pickets') {
                             const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            rawCostForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
                             displayAmount = numPicketsPedestrian;
                             unitType = `pcs (each ${picketHeightPedestrian.toFixed(0)}mm / Total ${totalPicketLengthPedestrian.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
                         }
                         else {
                             const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
+                            rawCostForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
-                        quoteSections.pedestrianGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
-                        currentPedestrianGateMaterialCost += costForMaterial;
+                        const costForMaterialWithProfit = rawCostForMaterial * (1 + currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
+                        quoteSections.pedestrianGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        currentPedestrianGateMaterialCost += costForMaterialWithProfit;
                     }
                 }
                 quoteSections.pedestrianGate.materialCost = currentPedestrianGateMaterialCost;
-                quoteSections.totalMaterialCostBeforeProfit += currentPedestrianGateMaterialCost;
-                quoteSections.totalProfit += (currentPedestrianGateMaterialCost * currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
+                quoteSections.totalMaterialCostWithProfit += currentPedestrianGateMaterialCost;
 
                 // Powder coating for pedestrian gate (frame)
                 const gateSurfaceAreaM2 = (pGateWidth / 1000) * (pGateHeight / 1000);
-                const powderCoatingCostForPedestrianGateFrame = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const rawPowderCoatingCostForPedestrianGateFrame = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const powderCoatingCostForPedestrianGateFrameWithProfit = rawPowderCoatingCostForPedestrianGateFrame * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Pedestrian Gate Frame Powder Coat`,
                     displayAmount: gateSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForPedestrianGateFrame
+                    cost: powderCoatingCostForPedestrianGateFrameWithProfit
                 });
-                quoteSections.powderCoating.baseCost += powderCoatingCostForPedestrianGateFrame;
+                quoteSections.powderCoating.baseCost += powderCoatingCostForPedestrianGateFrameWithProfit;
 
                 // Powder coating for hinges and latch if applicable
                 if (chosenHingeType === 'Adjustable Hinges') {
-                    const hingesPowderCost = 2 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const rawHingesPowderCost = 2 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const hingesPowderCostWithProfit = rawHingesPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: `${chosenHingeType} Powder Coat`,
                         displayAmount: 2,
                         unitType: 'pcs',
-                        cost: hingesPowderCost
+                        cost: hingesPowderCostWithProfit
                     });
-                    quoteSections.powderCoating.baseCost += hingesPowderCost;
+                    quoteSections.powderCoating.baseCost += hingesPowderCostWithProfit;
                 }
                 if (chosenLatchType === 'D latch') {
-                    const latchPowderCost = 1 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const rawLatchPowderCost = 1 * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const latchPowderCostWithProfit = rawLatchPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: `${chosenLatchType} Powder Coat`,
                         displayAmount: 1,
                         unitType: 'pcs',
-                        cost: latchPowderCost
+                        cost: latchPowderCostWithProfit
                     });
-                    quoteSections.powderCoating.baseCost += latchPowderCost;
+                    quoteSections.powderCoating.baseCost += latchPowderCostWithProfit;
                 }
 
                 // Installation for pedestrian gate
@@ -1909,51 +1913,54 @@
                     const materialInfo = materialPriceList[materialName];
 
                     if (requiredAmount > 0 && materialInfo) {
-                        let costForMaterial = 0;
+                        let rawCostForMaterial = 0;
                         let displayAmount = 0;
                         let unitType = '';
+                        let profitMarginToApply = currentProfitMargins.PROFIT_PANELS_MATERIAL; // Default for panels
 
                         if (materialName === 'Picket Top') {
-                            costForMaterial = requiredAmount * materialInfo.pricePerUnit;
+                            rawCostForMaterial = requiredAmount * materialInfo.pricePerUnit;
                             displayAmount = requiredAmount;
                             unitType = 'pcs';
                         } else if (materialName === '50x10 Pickets') {
                             const numTotalPickets = requiredAmount / fenceHeight;
                             const unitsNeededForPickets = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
+                            rawCostForMaterial = unitsNeededForPickets * materialInfo.pricePerUnit;
                             displayAmount = numTotalPickets.toFixed(0);
                             unitType = `pcs (each ${fenceHeight.toFixed(0)}mm / Total ${requiredAmount.toFixed(0)}mm / ${unitsNeededForPickets} x ${materialInfo.unitLength}mm lengths)`;
                         } else if (materialName === '40x40 Rail Brackets') {
-                             costForMaterial = requiredAmount * materialInfo.pricePerUnit;
+                             rawCostForMaterial = requiredAmount * materialInfo.pricePerUnit;
                              displayAmount = requiredAmount;
                              unitType = 'pcs';
+                             profitMarginToApply = currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL; // Use specific profit for brackets
                         }
                         else { // For 40x40 SHS
                             const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
-                            costForMaterial = unitsNeeded * materialInfo.pricePerUnit;
+                            rawCostForMaterial = unitsNeeded * materialInfo.pricePerUnit;
                             displayAmount = unitsNeeded;
                             unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
-                        quoteSections.fencePanels.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterial });
-                        currentFencePanelsMaterialCost += costForMaterial;
+                        const costForMaterialWithProfit = rawCostForMaterial * (1 + profitMarginToApply);
+                        quoteSections.fencePanels.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        currentFencePanelsMaterialCost += costForMaterialWithProfit;
                     }
                 }
                 quoteSections.fencePanels.materialCost = currentFencePanelsMaterialCost;
-                quoteSections.totalMaterialCostBeforeProfit += currentFencePanelsMaterialCost;
-                quoteSections.totalProfit += (currentFencePanelsMaterialCost * currentProfitMargins.PROFIT_PANELS_MATERIAL);
+                quoteSections.totalMaterialCostWithProfit += currentFencePanelsMaterialCost;
 
 
                 // Powder coating for fence panels
                 const totalPanelSurfaceAreaM2 = (quoteSections.fencePanels.totalLength / 1000) * (fenceHeight / 1000);
-                const powderCoatingCostForFencePanels = totalPanelSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const rawPowderCoatingCostForFencePanels = totalPanelSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
+                const powderCoatingCostForFencePanelsWithProfit = rawPowderCoatingCostForFencePanels * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Fence Panels Powder Coat`,
                     displayAmount: totalPanelSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForFencePanels
+                    cost: powderCoatingCostForFencePanelsWithProfit
                 });
-                quoteSections.powderCoating.baseCost += powderCoatingCostForFencePanels;
+                quoteSections.powderCoating.baseCost += powderCoatingCostForFencePanelsWithProfit;
 
                 // Installation for fence panels
                 const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
@@ -1962,14 +1969,15 @@
                 // Add miscellaneous powder coating (rail brackets)
                 const numRailBrackets = quoteSections.fencePanels.numPanels * 4;
                 if (numRailBrackets > 0) {
-                    const bracketsPowderCost = numRailBrackets * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const rawBracketsPowderCost = numRailBrackets * powderCoatingRates['Per_Piece_Powder_Coat'];
+                    const bracketsPowderCostWithProfit = rawBracketsPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: '40x40 Rail Brackets Powder Coat',
                         displayAmount: numRailBrackets,
                         unitType: 'pcs',
-                        cost: bracketsPowderCost
+                        cost: bracketsPowderCostWithProfit
                     });
-                    quoteSections.powderCoating.baseCost += bracketsPowderCost;
+                    quoteSections.powderCoating.baseCost += bracketsPowderCostWithProfit;
                 }
             }
 
@@ -1979,14 +1987,8 @@
                 quoteSections.totalFabricationCost = totalFabricationCost;
             }
 
-
-            // Final calculation for Powder Coating total profit
-            quoteSections.totalPowderCoatingBaseCost = quoteSections.powderCoating.baseCost;
-            quoteSections.totalProfit += (quoteSections.totalPowderCoatingBaseCost * currentProfitMargins.PROFIT_POWDER_COATING);
-
-
             // --- Final Calculations and Display ---
-            const finalOverallCost = quoteSections.totalMaterialCostBeforeProfit + quoteSections.totalPowderCoatingBaseCost + quoteSections.totalProfit + quoteSections.totalInstallationCost + quoteSections.totalFabricationCost;
+            const finalOverallCost = quoteSections.totalMaterialCostWithProfit + quoteSections.powderCoating.baseCost + quoteSections.totalInstallationCost + quoteSections.totalFabricationCost;
 
 
             let hasContentToDisplay = false;
@@ -2087,14 +2089,14 @@
             }
 
             // Powder Coating Section Display
-            if (quoteSections.totalPowderCoatingBaseCost > 0) {
+            if (quoteSections.powderCoating.baseCost > 0) {
                 powderCoatingSection.classList.remove('hidden');
                 powderCoatingDetailsDiv.innerHTML = '';
                 quoteSections.powderCoating.breakdown.forEach(item => {
                     powderCoatingDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.cost);
                 });
-                powderCoatingTotalSpan.textContent = `$${quoteSections.totalPowderCoatingBaseCost.toFixed(2)}`;
-                powderCoatingSectionTitle.textContent = `Powder Coating ($${quoteSections.totalPowderCoatingBaseCost.toFixed(2)})`; // Update button text with subtotal
+                powderCoatingTotalSpan.textContent = `$${quoteSections.powderCoating.baseCost.toFixed(2)}`;
+                powderCoatingSectionTitle.textContent = `Powder Coating ($${quoteSections.powderCoating.baseCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
 
@@ -2129,13 +2131,6 @@
                 installationCostsSectionTitle.textContent = `Installation ($${quoteSections.totalInstallationCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
             }
-
-            // Profit Summary Display - REMOVED AS PER USER REQUEST
-            // if (quoteSections.totalProfit > 0) {
-            //     profitSummarySection.classList.remove('hidden');
-            //     totalProfitDisplay.textContent = `$${quoteSections.totalProfit.toFixed(2)}`;
-            //     hasContentToDisplay = true;
-            // }
 
             // Only show results section if there's any content to display or a total cost
             if (hasContentToDisplay || finalOverallCost > 0) {
