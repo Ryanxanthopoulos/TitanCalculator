@@ -61,6 +61,14 @@
             border-color: #4299e1; /* Brighter blue on focus */
             box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.3); /* Subtle blue glow */
         }
+        /* Specific styling for inputs with symbols to adjust padding */
+        .input-with-symbol-right {
+            padding-right: 2.5rem !important; /* Extra padding for the symbol */
+        }
+        .input-with-symbol-left {
+            padding-left: 2.5rem !important; /* Extra padding for the symbol */
+        }
+
         .radio-group label {
             margin-right: 2.5rem; /* More space between radio options */
             font-weight: 500; /* Lighter font weight */
@@ -235,7 +243,7 @@
             margin-top: 0.5rem; /* Small margin after toggle button */
         }
         .collapsible-content.expanded {
-            max-height: 1000px; /* Sufficiently large to show all content when expanded */
+            max-height: 3000px; /* Sufficiently large to show all content when expanded */
             padding-top: 1rem; /* Restore padding when expanded */
             padding-bottom: 1rem; /* Restore padding when expanded */
         }
@@ -458,67 +466,106 @@
                     <span class="toggle-icon">▶</span>
                 </button>
                 <div id="advancedSettingsContent" class="collapsible-content">
-                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3">Profit Margins (%)</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3">Profit Margins</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="input-group">
                             <label for="profitSlidingGateMaterial">Sliding Gate Material:</label>
-                            <input type="number" id="profitSlidingGateMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitSlidingGateMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitPedestrianGateMaterial">Pedestrian Gate Material:</label>
-                            <input type="number" id="profitPedestrianGateMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitPedestrianGateMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitPanelsMaterial">Panels:</label>
-                            <input type="number" id="profitPanelsMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitPanelsMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitPostsCapsBracketsMaterial">Posts, Caps, & Brackets:</label>
-                            <input type="number" id="profitPostsCapsBracketsMaterial" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitPostsCapsBracketsMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitPowderCoating">Powder Coating:</label>
-                            <input type="number" id="profitPowderCoating" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitPowderCoating" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitGateMotors">Gate Motors:</label>
-                            <input type="number" id="profitGateMotors" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitGateMotors" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="profitGateMotorHardware">Gate Motor Hardware:</label>
-                            <input type="number" id="profitGateMotorHardware" class="mt-1 block w-full" min="0" max="100" step="1">
+                            <div class="relative mt-1">
+                                <input type="number" id="profitGateMotorHardware" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
                         </div>
                     </div>
 
-                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Installation Costs ($)</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Installation Costs</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="input-group">
                             <label for="installPostsFixed">Posts (per job):</label>
-                            <input type="number" id="installPostsFixed" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="installPostsFixed" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="installSlidingGateFixed">Sliding Gates (fixed):</label>
-                            <input type="number" id="installSlidingGateFixed" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="installSlidingGateFixed" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="installPedestrianGateFixed">Pedestrian Gates (fixed):</label>
-                            <input type="number" id="installPedestrianGateFixed" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="installPedestrianGateFixed" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="installPanelsPerMeter">Panels (per meter):</label>
-                            <input type="number" id="installPanelsPerMeter" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="installPanelsPerMeter" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                     </div>
 
-                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Fabrication Costs ($)</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Fabrication Costs</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="input-group">
                             <label for="fabricationCostPerDay">Fabrication Cost per Day:</label>
-                            <input type="number" id="fabricationCostPerDay" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="fabricationCostPerDay" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                         <div class="input-group">
                             <label for="fabricationDaysPerJob">Standard Fabrication Days per Job:</label>
-                            <input type="number" id="fabricationDaysPerJob" class="mt-1 block w-full" min="0" step="1">
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="fabricationDaysPerJob" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
                         </div>
                     </div>
                 </div>
