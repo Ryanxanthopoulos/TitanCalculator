@@ -6,6 +6,313 @@
     <title>Fencing Quote Calculator</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase configuration and initialization
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        let app;
+        let db;
+        let auth;
+        let userId; // Will store the authenticated user ID
+
+        // Initialize Firebase on window load or when DOM is ready
+        // This ensures the DOM elements are available before trying to attach listeners
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    // Sign in anonymously or with custom token if available
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    // Listen for authentication state changes
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            document.getElementById('currentUserIdDisplay').textContent = userId;
+                            console.log("Firebase initialized. User ID:", userId);
+                            loadSavedQuotes(); // Load quotes once authenticated
+                        } else {
+                            userId = crypto.randomUUID(); // Fallback to a random ID if not authenticated
+                            document.getElementById('currentUserIdDisplay').textContent = `Anon: ${userId.substring(0, 8)}...`;
+                            console.warn("User not authenticated, using anonymous ID:", userId);
+                            // Even for anonymous, load quotes based on their anon ID if any were saved.
+                            // This would ideally persist across sessions for anonymous users if you stored the anon ID in localStorage,
+                            // but for this example, a new anon ID means new session.
+                            loadSavedQuotes();
+                        }
+                    });
+                } else {
+                    console.warn("Firebase config not found. Quote saving/loading will not work.");
+                    document.getElementById('saveQuoteBtn').disabled = true;
+                    document.getElementById('loadQuotesBtn').disabled = true;
+                    document.getElementById('currentUserIdDisplay').textContent = "Not Connected";
+                }
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('errorMessage').textContent = `Firebase initialization error: ${error.message}. Quote saving/loading disabled.`;
+                document.getElementById('saveQuoteBtn').disabled = true;
+                document.getElementById('loadQuotesBtn').disabled = true;
+                document.getElementById('currentUserIdDisplay').textContent = "Error";
+            }
+        });
+
+        // Make Firebase functions globally accessible (for event listeners in HTML)
+        window.saveQuoteToFirestore = async function(quoteData) {
+            if (!db || !userId) {
+                showMessageBox("Error", "Firebase not initialized or user not authenticated. Cannot save quote.");
+                return;
+            }
+
+            const quoteNameInput = document.getElementById('quoteNameInput');
+            const quoteName = quoteNameInput.value.trim();
+            if (!quoteName) {
+                showMessageBox("Input Required", "Please enter a name for your quote before saving.");
+                return;
+            }
+
+            // Get current input values to save them for loading later
+            const inputValues = {
+                overallBoundaryLength: overallBoundaryLengthInput.value,
+                fenceHeight: fenceHeightInput.value,
+                postSize: postSizeSelect.value,
+                slidingGate: slidingGateYes.checked,
+                slidingGateLength: slidingGateLengthInput.value,
+                gateMotor: gateMotorYes.checked,
+                motorType: motorTypeSelect.value,
+                batteryBackup: batteryBackupCheckbox.checked,
+                antenna: antennaCheckbox.checked,
+                ziggyRemote: ziggyRemoteCheckbox.checked,
+                ziggyRemoteQty: ziggyRemoteQtyInput.value,
+                pedestrianGate: pedestrianGateYes.checked,
+                pedestrianGateWidth: pedestrianGateWidthInput.value,
+                hingeType: hingeTypeSelect.value,
+                latchType: latchTypeSelect.value,
+                profitSlidingGateMaterial: profitSlidingGateMaterialInput.value,
+                profitPedestrianGateMaterial: profitPedestrianGateMaterialInput.value,
+                profitPanelsMaterial: profitPanelsMaterialInput.value,
+                profitPostsMaterial: profitPostsMaterialInput.value,
+                profitCapsBracketsMaterial: profitCapsBracketsMaterialInput.value,
+                profitPowderCoating: profitPowderCoatingInput.value,
+                profitGateMotors: profitGateMotorsInput.value,
+                profitGateMotorHardware: profitGateMotorHardwareInput.value,
+                installPostsFixed: installPostsFixedInput.value,
+                installSlidingGateFixed: installSlidingGateFixedInput.value,
+                installPedestrianGateFixed: installPedestrianGateFixedInput.value,
+                installPanelsPerMeter: installPanelsPerMeterInput.value,
+                installMotorFixed: installMotorFixedInput.value,
+                fabricationCostPerDay: fabricationCostPerDayInput.value,
+                fabricationDaysPerJob: fabricationDaysPerJobInput.value,
+                materialCosts: {} // Capture current material costs
+            };
+
+            for (const key in defaultMaterialPriceList) {
+                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                const inputElement = document.getElementById(inputId);
+                if (inputElement) {
+                    inputValues.materialCosts[key] = inputElement.value;
+                }
+            }
+
+
+            const quoteDataToSave = {
+                name: quoteName,
+                timestamp: Date.now(),
+                userId: userId,
+                // Store all input values required to recreate the quote
+                inputValues: inputValues,
+                // Store the calculated total and summary for quick display
+                calculatedTotal: document.getElementById('totalCost').textContent,
+                quoteSummaryHtml: document.getElementById('quoteSummaryItems').innerHTML // Save the HTML for direct display
+            };
+
+            try {
+                // Quotes are stored in a subcollection under the user's private data path
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/quotes`), quoteDataToSave);
+                showMessageBox("Quote Saved!", `Your quote "${quoteName}" has been saved successfully with ID: ${docRef.id}`);
+                console.log("Document written with ID: ", docRef.id);
+                quoteNameInput.value = ''; // Clear the input after saving
+                loadSavedQuotes(); // Refresh the list of saved quotes
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showMessageBox("Error Saving", `Failed to save quote: ${e.message}`);
+            }
+        };
+
+
+        window.loadSavedQuotes = async function() {
+            if (!db || !userId) {
+                console.log("Firebase not initialized or user not authenticated. Cannot load quotes.");
+                return;
+            }
+
+            const savedQuotesList = document.getElementById('savedQuotesList');
+            savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">Loading quotes...</p>'; // Loading indicator
+
+            try {
+                // Fetch quotes from the private user collection
+                const querySnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${userId}/quotes`));
+                savedQuotesList.innerHTML = ''; // Clear loading indicator
+
+                if (querySnapshot.empty) {
+                    savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">No saved quotes found.</p>';
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const quote = doc.data();
+                    const timestamp = new Date(quote.timestamp).toLocaleString();
+                    const listItem = document.createElement('div');
+                    listItem.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-md shadow-sm mb-2 hover:bg-gray-100 transition duration-150';
+                    listItem.innerHTML = `
+                        <div class="flex-grow">
+                            <h4 class="font-semibold text-gray-800">${quote.name}</h4>
+                            <p class="text-sm text-gray-600">${timestamp}</p>
+                            <p class="text-xs text-gray-500">ID: ${doc.id.substring(0, 8)}...</p>
+                        </div>
+                        <div class="flex space-x-2 flex-shrink-0">
+                            <button onclick="displayLoadedQuote('${doc.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors">Load</button>
+                            <button onclick="deleteQuote('${doc.id}', '${quote.name}')" class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 transition-colors">Delete</button>
+                        </div>
+                    `;
+                    savedQuotesList.appendChild(listItem);
+                });
+            } catch (e) {
+                console.error("Error loading documents: ", e);
+                savedQuotesList.innerHTML = `<p class="text-red-500 text-center">Error loading quotes: ${e.message}</p>`;
+            }
+        };
+
+        window.displayLoadedQuote = async function(quoteId) {
+            if (!db || !userId) {
+                showMessageBox("Error", "Firebase not initialized or user not authenticated. Cannot load quote.");
+                return;
+            }
+            try {
+                const quoteDoc = await getDocs(collection(db, `artifacts/${appId}/users/${userId}/quotes`));
+                let selectedQuote = null;
+                quoteDoc.forEach(doc => {
+                    if (doc.id === quoteId) {
+                        selectedQuote = doc.data();
+                    }
+                });
+
+                if (selectedQuote) {
+                    const inputValues = selectedQuote.inputValues;
+
+                    // Populate form fields with saved input values
+                    overallBoundaryLengthInput.value = inputValues.overallBoundaryLength || '';
+                    fenceHeightInput.value = inputValues.fenceHeight || '';
+                    postSizeSelect.value = inputValues.postSize || '65';
+
+                    if (inputValues.slidingGate) {
+                        slidingGateYes.checked = true;
+                    } else {
+                        slidingGateNo.checked = true;
+                    }
+                    toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
+                    slidingGateLengthInput.value = inputValues.slidingGateLength || '';
+
+                    if (inputValues.gateMotor) {
+                        gateMotorYes.checked = true;
+                    } else {
+                        gateMotorNo.checked = true;
+                    }
+                    toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
+                    motorTypeSelect.value = inputValues.motorType || '';
+                    batteryBackupCheckbox.checked = inputValues.batteryBackup || false;
+                    antennaCheckbox.checked = inputValues.antenna || false;
+                    ziggyRemoteCheckbox.checked = inputValues.ziggyRemote || false;
+                    ziggyRemoteQtyInput.value = inputValues.ziggyRemoteQty || '1';
+                    ziggyRemoteQtyInput.disabled = !ziggyRemoteCheckbox.checked;
+
+
+                    if (inputValues.pedestrianGate) {
+                        pedestrianGateYes.checked = true;
+                    } else {
+                        pedestrianGateNo.checked = true;
+                    }
+                    toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
+                    pedestrianGateWidthInput.value = inputValues.pedestrianGateWidth || '';
+                    hingeTypeSelect.value = inputValues.hingeType || 'Adjustable Hinges';
+                    latchTypeSelect.value = inputValues.latchType || 'D latch';
+
+                    // Populate advanced settings
+                    profitSlidingGateMaterialInput.value = inputValues.profitSlidingGateMaterial || Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
+                    profitPedestrianGateMaterialInput.value = inputValues.profitPedestrianGateMaterial || Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
+                    profitPanelsMaterialInput.value = inputValues.profitPanelsMaterial || Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
+                    profitPostsMaterialInput.value = inputValues.profitPostsMaterial || Math.round(DEFAULT_PROFIT_POSTS_MATERIAL * 100);
+                    profitCapsBracketsMaterialInput.value = inputValues.profitCapsBracketsMaterial || Math.round(DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL * 100);
+                    profitPowderCoatingInput.value = inputValues.profitPowderCoating || Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
+                    profitGateMotorsInput.value = inputValues.profitGateMotors || Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
+                    profitGateMotorHardwareInput.value = inputValues.profitGateMotorHardware || Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+
+                    installPostsFixedInput.value = inputValues.installPostsFixed || DEFAULT_INSTALL_POSTS_FIXED;
+                    installSlidingGateFixedInput.value = inputValues.installSlidingGateFixed || DEFAULT_INSTALL_SLIDING_GATE_FIXED;
+                    installPedestrianGateFixedInput.value = inputValues.installPedestrianGateFixed || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
+                    installPanelsPerMeterInput.value = inputValues.installPanelsPerMeter || DEFAULT_INSTALL_PANELS_PER_METER;
+                    installMotorFixedInput.value = inputValues.installMotorFixed || DEFAULT_INSTALL_MOTOR_FIXED;
+
+                    fabricationCostPerDayInput.value = inputValues.fabricationCostPerDay || DEFAULT_FABRICATION_COST_PER_DAY;
+                    fabricationDaysPerJobInput.value = inputValues.fabricationDaysPerJob || DEFAULT_FABRICATION_DAYS_PER_JOB;
+
+                    // Populate dynamic material costs
+                    if (inputValues.materialCosts) {
+                        for (const key in inputValues.materialCosts) {
+                            const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                            const inputElement = document.getElementById(inputId);
+                            if (inputElement) {
+                                inputElement.value = inputValues.materialCosts[key];
+                            }
+                        }
+                    }
+
+                    // Trigger a recalculation to update the displayed results based on loaded inputs
+                    quoteForm.dispatchEvent(new Event('submit'));
+                    closeLoadQuotesModal(); // Close the modal after loading
+
+                    showMessageBox("Quote Loaded", `Quote "${selectedQuote.name}" loaded successfully.`);
+                } else {
+                    showMessageBox("Error", "Quote not found.");
+                }
+            } catch (e) {
+                console.error("Error loading document:", e);
+                showMessageBox("Error Loading", `Failed to load quote: ${e.message}`);
+            }
+        };
+
+        window.deleteQuote = async function(quoteId, quoteName) {
+            if (!db || !userId) {
+                showMessageBox("Error", "Firebase not initialized or user not authenticated. Cannot delete quote.");
+                return;
+            }
+
+            if (confirm(`Are you sure you want to delete the quote "${quoteName}"?`)) { // Using confirm for simplicity for now
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/quotes`, quoteId));
+                    showMessageBox("Quote Deleted", `Quote "${quoteName}" has been deleted successfully.`);
+                    loadSavedQuotes(); // Refresh the list
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
+                    showMessageBox("Error Deleting", `Failed to delete quote: ${e.message}`);
+                }
+            }
+        };
+
+    </script>
     <style>
         /* Custom font for a cleaner look */
         body {
@@ -45,7 +352,8 @@
             font-size: 1rem; /* Standard label font size */
         }
         .input-group input[type="number"],
-        .input-group select {
+        .input-group select,
+        .input-group input[type="text"] { /* Added text input */
             width: 100%;
             padding: 0.95rem 1.15rem; /* Increased padding for inputs */
             border: 1px solid #cbd5e0; /* Softer border color */
@@ -56,7 +364,8 @@
             transition: border-color 0.2s, box-shadow 0.2s;
         }
         .input-group input[type="number"]:focus,
-        .input-group select:focus {
+        .input-group select:focus,
+        .input-group input[type="text"]:focus { /* Added text input focus */
             outline: none;
             border-color: #4299e1; /* Brighter blue on focus */
             box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.3); /* Subtle blue glow */
@@ -112,7 +421,7 @@
             border: 1px solid #fbd3d3;
             font-weight: 500;
         }
-        .message-box {
+        .message-box, .modal { /* Combined styling for message box and new modals */
             position: fixed;
             top: 50%;
             left: 50%;
@@ -126,19 +435,21 @@
             max-width: 450px; /* Slightly wider */
             text-align: center;
             border: 1px solid #e2e8f0;
+            max-height: 80vh; /* Max height for scrollable content */
+            overflow-y: auto; /* Enable scrolling for modal content */
         }
-        .message-box h3 {
+        .message-box h3, .modal h3 {
             font-size: 1.5rem; /* Larger message title */
             font-weight: 700;
             margin-bottom: 1rem;
             color: #1a202c;
         }
-        .message-box p {
+        .message-box p, .modal p {
             margin-bottom: 2rem; /* More space below message */
             color: #4a5568;
             line-height: 1.5;
         }
-        .message-box button {
+        .message-box button, .modal button {
             background-color: #4299e1; /* Tailwind blue-500 */
             color: white;
             padding: 0.8rem 2rem; /* Larger button */
@@ -148,7 +459,7 @@
             transition: background-color 0.2s, transform 0.1s ease-in-out;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
         }
-        .message-box button:hover {
+        .message-box button:hover, .modal button:hover {
             background-color: #3182ce; /* Darker blue on hover */
             transform: translateY(-1px); /* Slight lift effect */
         }
@@ -232,6 +543,14 @@
             text-align: right; /* Align cost to the right */
             font-size: 1rem;
         }
+        /* Style for the base cost displayed below the profit-included cost */
+        .material-line-item .item-cost .base-cost-display {
+            color: #6b7280; /* Gray-500 for subtle text */
+            font-size: 0.75rem; /* Smaller font size */
+            font-weight: 400; /* Normal weight */
+            display: block; /* Ensures it's on a new line */
+            margin-top: 0.2rem; /* Small margin above it */
+        }
 
         /* Collapsible content area for advanced settings and results sections */
         .collapsible-content {
@@ -243,9 +562,69 @@
             margin-top: 0.5rem; /* Small margin after toggle button */
         }
         .collapsible-content.expanded {
-            max-height: 3000px; /* Sufficiently large to show all content when expanded */
+            max-height: 9999px; /* Sufficiently large to show all content when expanded */
             padding-top: 1rem; /* Restore padding when expanded */
             padding-bottom: 1rem; /* Restore padding when expanded */
+        }
+
+        /* Professional Quote Summary Styling */
+        .professional-quote-summary {
+            background-color: #ffffff;
+            border-radius: 14px;
+            border: 1px solid #cceeff; /* Light blue border */
+            padding: 2.5rem;
+            margin-top: 3rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); /* Softer shadow */
+        }
+
+        .professional-quote-summary h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c5282; /* Deep blue */
+            margin-bottom: 1.75rem;
+            text-align: center;
+        }
+
+        .professional-quote-summary .quote-line-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px dashed #e0e0e0;
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .professional-quote-summary .quote-line-item:last-of-type {
+            border-bottom: none;
+            margin-bottom: 0.5rem;
+        }
+
+        .professional-quote-summary .quote-line-item .item-description {
+            flex-grow: 1;
+            padding-right: 1rem;
+            font-weight: 500;
+        }
+
+        .professional-quote-summary .quote-line-item .item-price {
+            font-weight: 700;
+            color: #0056b3; /* Darker blue for prices */
+        }
+
+        .professional-quote-summary .final-total {
+            font-size: 1.75rem;
+            /* Removed font-weight and other properties to inherit or match calculator text */
+            text-align: right;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #aaddff; /* More prominent separator */
+            color: #1a202c;
+            /* Inherit font-family from body */
+            font-family: inherit;
+        }
+         .professional-quote-summary .final-total span {
+            font-weight: 800; /* Keep the actual total price bold */
+            color: #0056b3; /* Darker blue for prices */
         }
 
 
@@ -301,12 +680,35 @@
                 padding-top: 0.5rem; /* Adjusted padding for smaller screens */
                 padding-bottom: 0.5rem;
             }
+            .professional-quote-summary {
+                padding: 1.5rem;
+                margin-top: 2rem;
+            }
+            .professional-quote-summary h2 {
+                font-size: 1.5rem;
+            }
+            .professional-quote-summary .quote-line-item {
+                font-size: 1rem;
+                flex-direction: column; /* Stack description and price on small screens */
+                align-items: flex-start;
+            }
+            .professional-quote-summary .quote-line-item .item-price {
+                margin-top: 0.25rem; /* Small space when stacked */
+            }
+            .professional-quote-summary .final-total {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Fencing Quote Calculator</h1>
+
+        <!-- User ID Display -->
+        <div class="mb-4 text-center text-sm text-gray-500">
+            Current User ID: <span id="currentUserIdDisplay" class="font-semibold text-gray-700">Loading...</span>
+        </div>
 
         <!-- Error Message Display -->
         <div id="errorMessage" class="error-message" style="display: none;"></div>
@@ -490,9 +892,16 @@
                             </div>
                         </div>
                         <div class="input-group">
-                            <label for="profitPostsCapsBracketsMaterial">Posts, Caps, & Brackets:</label>
+                            <label for="profitPostsMaterial">Posts:</label>
                             <div class="relative mt-1">
-                                <input type="number" id="profitPostsCapsBracketsMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <input type="number" id="profitPostsMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="profitCapsBracketsMaterial">Caps & Brackets:</label>
+                            <div class="relative mt-1">
+                                <input type="number" id="profitCapsBracketsMaterial" class="block w-full input-with-symbol-right" min="0" max="100" step="1">
                                 <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500">%</span>
                             </div>
                         </div>
@@ -549,6 +958,13 @@
                                 <input type="number" id="installPanelsPerMeter" class="block w-full input-with-symbol-left" min="0" step="1">
                             </div>
                         </div>
+                        <div class="input-group">
+                            <label for="installMotorFixed">Motor Installation (fixed):</label>
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="installMotorFixed" class="block w-full input-with-symbol-left" min="0" step="1">
+                            </div>
+                        </div>
                     </div>
 
                     <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Fabrication Costs</h3>
@@ -568,8 +984,30 @@
                             </div>
                         </div>
                     </div>
+
+                    <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3 mt-6">Material Costs (Base Prices)</h3>
+                    <div id="materialCostInputs" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Material cost inputs will be dynamically inserted here -->
+                    </div>
                 </div>
             </div>
+
+            <!-- Action Buttons for Save/Load -->
+            <div class="flex flex-col md:flex-row gap-4 mt-6">
+                <div class="input-group flex-grow">
+                    <label for="quoteNameInput" class="sr-only">Quote Name (for saving)</label>
+                    <input type="text" id="quoteNameInput" placeholder="Enter a name for your quote" class="mt-1 block w-full">
+                </div>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <button type="button" id="saveQuoteBtn" onclick="saveQuoteToFirestore()" class="w-full md:w-auto bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition duration-200 ease-in-out shadow-md">
+                        Save Quote
+                    </button>
+                    <button type="button" id="loadQuotesBtn" onclick="showLoadQuotesModal()" class="w-full md:w-auto bg-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-purple-700 transition duration-200 ease-in-out shadow-md">
+                        Load Quotes
+                    </button>
+                </div>
+            </div>
+
 
             <!-- Calculate Button -->
             <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 ease-in-out shadow-md">
@@ -726,6 +1164,18 @@
 
             </div>
             <p class="text-right text-lg font-bold mt-6 text-gray-800">Quote Total: <span id="totalCost" class="text-blue-600">$0.00</span></p>
+
+            <!-- Professional Quote Summary Section -->
+            <div id="professionalQuoteSummary" class="professional-quote-summary hidden">
+                <h2 class="text-center mb-6">Quote Summary</h2>
+                <div id="quoteSummaryItems" class="space-y-3">
+                    <!-- Quote line items will be inserted here -->
+                </div>
+                <div class="final-total">
+                    Quote Total: <span id="finalProfessionalQuoteTotal">$0.00</span>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -735,11 +1185,22 @@
         <p id="messageBoxContent"></p>
         <button onclick="closeMessageBox()">OK</button>
     </div>
-    <div id="overlay" class="overlay" onclick="closeMessageBox()"></div>
+
+    <!-- Load Quotes Modal -->
+    <div id="loadQuotesModal" class="modal">
+        <h3>Your Saved Quotes</h3>
+        <div id="savedQuotesList" class="my-4 text-left">
+            <p class="text-gray-500 text-center">No quotes loaded yet.</p>
+        </div>
+        <button onclick="closeLoadQuotesModal()">Close</button>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="closeMessageBox(); closeLoadQuotesModal()"></div>
 
     <script>
-        // Material price list with their respective stock lengths and costs
-        const materialPriceList = {
+        // Default Material price list with their respective stock lengths and costs
+        // This will be used to populate the editable inputs initially
+        const defaultMaterialPriceList = {
             '100x50 RHS': { pricePerUnit: 81.58, unitLength: 8000 },
             '40x40 SHS': { pricePerUnit: 35.72, unitLength: 8000 },
             '50x10 Pickets': { pricePerUnit: 19.72, unitLength: 7320 },
@@ -776,7 +1237,7 @@
             'Ziggy Remote': { pricePerUnit: 47.65, unitLength: 1 },
         };
 
-        // Powder Coating Rates
+        // Powder Coating Rates - these remain fixed in the code as they are not user-editable via inputs
         const powderCoatingRates = {
             '65x65 Post': 5.50,   // per meter
             '89x89 Post': 7.70,   // per meter (assuming 90x90 means 89x89)
@@ -789,6 +1250,7 @@
         const DEFAULT_INSTALL_SLIDING_GATE_FIXED = 1750;
         const DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED = 750;
         const DEFAULT_INSTALL_PANELS_PER_METER = 65;
+        const DEFAULT_INSTALL_MOTOR_FIXED = 1000; // New default motor installation cost
 
         // Default Fabrication Rates
         const DEFAULT_FABRICATION_COST_PER_DAY = 1250;
@@ -799,7 +1261,8 @@
         const DEFAULT_PROFIT_SLIDING_GATE_MATERIAL = 0.55; // 55%
         const DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL = 0.55; // 55%
         const DEFAULT_PROFIT_PANELS_MATERIAL = 0.50; // 50%
-        const DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL = 0.35; // 35%
+        const DEFAULT_PROFIT_POSTS_MATERIAL = 0.30; // 30% for posts
+        const DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL = 0.35; // 35% for caps and brackets
         const DEFAULT_PROFIT_POWDER_COATING = 0.25; // 25%
         const DEFAULT_PROFIT_GATE_MOTORS = 0.55; // 55%
         const DEFAULT_PROFIT_GATE_MOTOR_HARDWARE = 0.70; // 70%
@@ -807,9 +1270,14 @@
         // Constants for panel optimization
         const IDEAL_PANEL_2_4M = 2400; // 2.4 meters
 
+        // Local Storage Key for settings (separate from quotes)
+        const STORAGE_KEY = 'fencingQuoteSettings';
+
+
         // Get references to DOM elements
         const overallBoundaryLengthInput = document.getElementById('overallBoundaryLength');
         const fenceHeightInput = document.getElementById('fenceHeight'); // Global fence height input
+        const postSizeSelect = document.getElementById('postSize'); // Renamed for clarity
 
         const slidingGateYes = document.getElementById('slidingGateYes');
         const slidingGateNo = document.getElementById('slidingGateNo');
@@ -890,8 +1358,6 @@
         const installationCostsSectionTitle = document.getElementById('installationCostsSectionTitle');
         const installationDetailsDiv = document.getElementById('installationDetails');
         const installationTotalSpan = document.getElementById('installationTotal');
-        // const profitSummarySection = document.getElementById('profitSummarySection'); // Removed as per user request
-        // const totalProfitDisplay = document.getElementById('totalProfitDisplay'); // Removed as per user request
 
         // Fabrication display elements
         const fabricationCostsSection = document.getElementById('fabricationCostsSection');
@@ -909,7 +1375,8 @@
         const profitSlidingGateMaterialInput = document.getElementById('profitSlidingGateMaterial');
         const profitPedestrianGateMaterialInput = document.getElementById('profitPedestrianGateMaterial');
         const profitPanelsMaterialInput = document.getElementById('profitPanelsMaterial');
-        const profitPostsCapsBracketsMaterialInput = document.getElementById('profitPostsCapsBracketsMaterial');
+        const profitPostsMaterialInput = document.getElementById('profitPostsMaterial'); // New input
+        const profitCapsBracketsMaterialInput = document.getElementById('profitCapsBracketsMaterial'); // New input
         const profitPowderCoatingInput = document.getElementById('profitPowderCoating');
         const profitGateMotorsInput = document.getElementById('profitGateMotors');
         const profitGateMotorHardwareInput = document.getElementById('profitGateMotorHardware');
@@ -918,10 +1385,19 @@
         const installSlidingGateFixedInput = document.getElementById('installSlidingGateFixed');
         const installPedestrianGateFixedInput = document.getElementById('installPedestrianGateFixed');
         const installPanelsPerMeterInput = document.getElementById('installPanelsPerMeter');
+        const installMotorFixedInput = document.getElementById('installMotorFixed'); // New motor installation input
 
         // Fabrication input fields
         const fabricationCostPerDayInput = document.getElementById('fabricationCostPerDay');
         const fabricationDaysPerJobInput = document.getElementById('fabricationDaysPerJob');
+
+        // New material cost inputs container
+        const materialCostInputsDiv = document.getElementById('materialCostInputs');
+
+        // Professional Quote Summary elements
+        const professionalQuoteSummaryDiv = document.getElementById('professionalQuoteSummary');
+        const quoteSummaryItemsDiv = document.getElementById('quoteSummaryItems');
+        const finalProfessionalQuoteTotalSpan = document.getElementById('finalProfessionalQuoteTotal');
 
 
         const fenceLayoutCanvas = document.getElementById('fenceLayoutCanvas');
@@ -932,6 +1408,8 @@
         const messageBoxTitle = document.getElementById('messageBoxTitle');
         const messageBoxContent = document.getElementById('messageBoxContent');
         const overlay = document.getElementById('overlay');
+        const loadQuotesModal = document.getElementById('loadQuotesModal'); // New modal for loading quotes
+
 
         /**
          * Displays a custom message box instead of using alert().
@@ -948,10 +1426,28 @@
         /**
          * Closes the custom message box.
          */
-        function closeMessageBox() {
+        window.closeMessageBox = function() { // Made global
             messageBox.style.display = 'none';
             overlay.style.display = 'none';
         }
+
+        /**
+         * Displays the Load Quotes modal.
+         */
+        window.showLoadQuotesModal = function() { // Made global
+            loadQuotesModal.style.display = 'block';
+            overlay.style.display = 'block';
+            loadSavedQuotes(); // Load quotes every time the modal is opened
+        }
+
+        /**
+         * Closes the Load Quotes modal.
+         */
+        window.closeLoadQuotesModal = function() { // Made global
+            loadQuotesModal.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
 
         /**
          * Toggles the visibility of input fields based on radio button selection.
@@ -1104,18 +1600,38 @@
          * @param {string} name - Name of the material.
          * @param {number} displayAmount - Quantity or number of lengths.
          * @param {string} unitType - Unit type (e.g., 'pcs', 'x 8000mm lengths').
-         * @param {number} cost - Cost of the material.
+         * @param {number} rawCost - Base cost of the material before profit.
+         * @param {number} profitIncludedCost - Cost of the material including profit.
          * @returns {string} HTML string for the material line item.
          */
-        function formatLineItem(name, displayAmount, unitType, cost) {
+        function formatLineItem(name, displayAmount, unitType, rawCost, profitIncludedCost) {
             return `
                 <div class="material-line-item">
                     <div class="item-name">${name}:</div>
                     <div class="item-qty-unit">${displayAmount} ${unitType}</div>
-                    <div class="item-cost">$${cost.toFixed(2)}</div>
+                    <div class="item-cost">
+                        $${profitIncludedCost.toFixed(2)}
+                        <span class="base-cost-display">($${rawCost.toFixed(2)} base)</span>
+                    </div>
                 </div>
             `;
         }
+
+        /**
+         * Helper function to format a professional quote line item.
+         * @param {string} description - The text description of the line item.
+         * @param {number} price - The total price for this line item.
+         * @returns {string} HTML string for the professional quote line item.
+         */
+        function formatProfessionalQuoteLineItem(description, price) {
+            return `
+                <div class="quote-line-item">
+                    <span class="item-description">${description}</span>
+                    <span class="item-price">$${price.toFixed(2)}</span>
+                </div>
+            `;
+        }
+
 
         /**
          * Calculates the individual panel lengths based on total linear fence length,
@@ -1311,10 +1827,16 @@
         quoteForm.addEventListener('submit', function (event) {
             event.preventDefault(); // Prevent default form submission
 
+            // Save settings before calculation and displaying results
+            saveSettings();
+
             // Hide previous results and errors and clear content
             resultsDiv.classList.add('hidden');
             errorMessageDiv.style.display = 'none'; // Ensure error message is hidden
             errorMessageDiv.textContent = '';
+            professionalQuoteSummaryDiv.classList.add('hidden'); // Hide professional summary
+            quoteSummaryItemsDiv.innerHTML = ''; // Clear professional summary items
+
 
             // Get all collapsible content areas and hide them (collapse)
             document.querySelectorAll('.collapsible-content').forEach(content => {
@@ -1364,7 +1886,8 @@
                 PROFIT_SLIDING_GATE_MATERIAL: (parseFloat(profitSlidingGateMaterialInput.value) / 100) || DEFAULT_PROFIT_SLIDING_GATE_MATERIAL,
                 PROFIT_PEDESTRIAN_GATE_MATERIAL: (parseFloat(profitPedestrianGateMaterialInput.value) / 100) || DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL,
                 PROFIT_PANELS_MATERIAL: (parseFloat(profitPanelsMaterialInput.value) / 100) || DEFAULT_PROFIT_PANELS_MATERIAL,
-                PROFIT_POSTS_CAPS_BRACKETS_MATERIAL: (parseFloat(profitPostsCapsBracketsMaterialInput.value) / 100) || DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL,
+                PROFIT_POSTS_MATERIAL: (parseFloat(profitPostsMaterialInput.value) / 100) || DEFAULT_PROFIT_POSTS_MATERIAL, // New profit margin
+                PROFIT_CAPS_BRACKETS_MATERIAL: (parseFloat(profitCapsBracketsMaterialInput.value) / 100) || DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL, // New profit margin
                 PROFIT_POWDER_COATING: (parseFloat(profitPowderCoatingInput.value) / 100) || DEFAULT_PROFIT_POWDER_COATING,
                 PROFIT_GATE_MOTORS: (parseFloat(profitGateMotorsInput.value) / 100) || DEFAULT_PROFIT_GATE_MOTORS,
                 PROFIT_GATE_MOTOR_HARDWARE: (parseFloat(profitGateMotorHardwareInput.value) / 100) || DEFAULT_PROFIT_GATE_MOTOR_HARDWARE,
@@ -1375,12 +1898,25 @@
                 INSTALL_SLIDING_GATE_FIXED: parseFloat(installSlidingGateFixedInput.value) || DEFAULT_INSTALL_SLIDING_GATE_FIXED,
                 INSTALL_PEDESTRIAN_GATE_FIXED: parseFloat(installPedestrianGateFixedInput.value) || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED,
                 INSTALL_PANELS_PER_METER: parseFloat(installPanelsPerMeterInput.value) || DEFAULT_INSTALL_PANELS_PER_METER,
+                INSTALL_MOTOR_FIXED: parseFloat(installMotorFixedInput.value) || DEFAULT_INSTALL_MOTOR_FIXED, // Get new motor install cost
             };
 
             const currentFabricationCosts = {
                 FABRICATION_COST_PER_DAY: parseFloat(fabricationCostPerDayInput.value) || DEFAULT_FABRICATION_COST_PER_DAY,
                 FABRICATION_DAYS_PER_JOB: parseFloat(fabricationDaysPerJobInput.value) || DEFAULT_FABRICATION_DAYS_PER_JOB,
             };
+
+            // Read dynamic material costs from the new inputs
+            const currentMaterialPriceList = {};
+            for (const key in defaultMaterialPriceList) {
+                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                const inputElement = document.getElementById(inputId);
+                // Use the value from the input if available, otherwise fall back to the default
+                currentMaterialPriceList[key] = {
+                    pricePerUnit: parseFloat(inputElement.value) || defaultMaterialPriceList[key].pricePerUnit,
+                    unitLength: defaultMaterialPriceList[key].unitLength // unitLength remains fixed
+                };
+            }
 
 
             // Initialize quote sections with specific cost categories
@@ -1392,6 +1928,7 @@
                 pedestrianGate: { materialCost: 0, materialsBreakdown: [], totalFrameLength: 0, present: false, width: 0, hingeType: '', latchType: '' },
                 fencePanels: { materialCost: 0, materialsBreakdown: [], totalLength: 0, numPanels: 0, individualPanelLengths: [], present: false },
                 powderCoating: { baseCost: 0, breakdown: [] }, // baseCost will now store profit-included cost
+                fabrication: { baseCost: 0, breakdown: [] }, // Initialize fabrication with breakdown array
                 totalMaterialCostWithProfit: 0, // This will be the sum of all material costs including their respective profits
                 totalInstallationCost: 0,
                 totalFabricationCost: 0
@@ -1400,7 +1937,7 @@
 
             // Get fence height for auto-calculation of post length
             const fenceHeight = parseFloat(fenceHeightInput.value);
-            const postSize = parseInt(document.getElementById('postSize').value);
+            const postSize = parseInt(postSizeSelect.value);
 
             // Auto-calculate post length
             const calculatedPostLength = fenceHeight + 600;
@@ -1424,13 +1961,15 @@
             }
 
             // --- Gate Motor Calculation & Check ---
+            let motorInstallCostForSummary = 0; // Capture for professional quote summary
             if (gateMotorYes.checked) {
                 const motorType = motorTypeSelect.value;
                 if (!motorType) errors.push("Please select a Gate Motor Type.");
 
                 if (errors.length === 0) { // Proceed only if motor type is selected
                     quoteSections.gateMotors.present = true;
-                    const motorInfo = materialPriceList[motorType];
+                    // Use currentMaterialPriceList for motor info
+                    const motorInfo = currentMaterialPriceList[motorType];
                     if (motorInfo) {
                         const rawMotorCost = motorInfo.pricePerUnit;
                         const motorCostWithProfit = rawMotorCost * (1 + currentProfitMargins.PROFIT_GATE_MOTORS);
@@ -1439,7 +1978,8 @@
                             name: motorType,
                             displayAmount: 1,
                             unitType: 'unit',
-                            cost: motorCostWithProfit
+                            cost: motorCostWithProfit,
+                            rawCost: rawMotorCost // Store raw cost
                         });
                         quoteSections.totalMaterialCostWithProfit += motorCostWithProfit;
                     } else {
@@ -1448,7 +1988,8 @@
 
                     // Gear Rack
                     if (quoteSections.slidingGate.present && quoteSections.slidingGate.length > 0) {
-                        const gearRackInfo = materialPriceList['Gear rack'];
+                        // Use currentMaterialPriceList for gear rack info
+                        const gearRackInfo = currentMaterialPriceList['Gear rack'];
                         if (gearRackInfo) {
                             const requiredRackLengthMM = quoteSections.slidingGate.length; // 1m per meter of gate
                             const rackUnitsNeeded = calculateUnitsNeeded(requiredRackLengthMM, gearRackInfo.unitLength);
@@ -1459,7 +2000,8 @@
                                 name: 'Gear rack',
                                 displayAmount: rackUnitsNeeded,
                                 unitType: `x ${gearRackInfo.unitLength/1000}m lengths (Total ${requiredRackLengthMM.toFixed(0)}mm)`,
-                                cost: costOfRackWithProfit
+                                cost: costOfRackWithProfit,
+                                rawCost: rawCostOfRack // Store raw cost
                             });
                             quoteSections.totalMaterialCostWithProfit += costOfRackWithProfit;
                         } else {
@@ -1471,7 +2013,8 @@
 
                     // Battery backup
                     if (batteryBackupCheckbox.checked) {
-                        const batteryInfo = materialPriceList['Battery backup'];
+                        // Use currentMaterialPriceList for battery info
+                        const batteryInfo = currentMaterialPriceList['Battery backup'];
                         if (batteryInfo) {
                             const rawBatteryCost = batteryInfo.pricePerUnit;
                             const batteryCostWithProfit = rawBatteryCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
@@ -1480,7 +2023,8 @@
                                 name: 'Battery backup',
                                 displayAmount: 1,
                                 unitType: 'pcs',
-                                cost: batteryCostWithProfit
+                                cost: batteryCostWithProfit,
+                                rawCost: rawBatteryCost // Store raw cost
                             });
                             quoteSections.totalMaterialCostWithProfit += batteryCostWithProfit;
                         } else {
@@ -1490,7 +2034,8 @@
 
                     // Antenna
                     if (antennaCheckbox.checked) {
-                        const antennaInfo = materialPriceList['Antenna'];
+                        // Use currentMaterialPriceList for antenna info
+                        const antennaInfo = currentMaterialPriceList['Antenna'];
                         if (antennaInfo) {
                             const rawAntennaCost = antennaInfo.pricePerUnit;
                             const antennaCostWithProfit = rawAntennaCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
@@ -1499,7 +2044,8 @@
                                 name: 'Antenna',
                                 displayAmount: 1,
                                 unitType: 'pcs',
-                                cost: antennaCostWithProfit
+                                cost: antennaCostWithProfit,
+                                rawCost: rawAntennaCost // Store raw cost
                             });
                             quoteSections.totalMaterialCostWithProfit += antennaCostWithProfit;
                         } else {
@@ -1510,7 +2056,8 @@
                     // Ziggy Remote
                     if (ziggyRemoteCheckbox.checked) {
                         const ziggyRemoteQty = parseInt(ziggyRemoteQtyInput.value) || 1;
-                        const ziggyRemoteInfo = materialPriceList['Ziggy Remote'];
+                        // Use currentMaterialPriceList for ziggy remote info
+                        const ziggyRemoteInfo = currentMaterialPriceList['Ziggy Remote'];
                         if (ziggyRemoteInfo) {
                             const rawZiggyRemoteCost = ziggyRemoteQty * ziggyRemoteInfo.pricePerUnit;
                             const ziggyRemoteCostWithProfit = rawZiggyRemoteCost * (1 + currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE);
@@ -1519,13 +2066,18 @@
                                 name: 'Ziggy Remote',
                                 displayAmount: ziggyRemoteQty,
                                 unitType: 'pcs',
-                                cost: ziggyRemoteCostWithProfit
+                                cost: ziggyRemoteCostWithProfit,
+                                rawCost: rawZiggyRemoteCost // Store raw cost
                             });
                             quoteSections.totalMaterialCostWithProfit += ziggyRemoteCostWithProfit;
                         } else {
                             errors.push('Price information for Ziggy Remote not found.');
                         }
                     }
+
+                    // Add motor installation cost
+                    quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_MOTOR_FIXED;
+                    motorInstallCostForSummary = currentInstallationCosts.INSTALL_MOTOR_FIXED; // Capture for summary
                 }
             }
 
@@ -1606,36 +2158,54 @@
 
 
             // --- Post Material Calculation ---
+            let powderCoatingCostForPostsWithProfit = 0; // Initialize
+            let totalPostsCost = 0; // For professional quote summary
+
             if (quoteSections.posts.numCalculated > 0 && quoteSections.posts.length > 0) {
                 const postTypeName = `${postSize}x${postSize} Post`;
-                const postInfo = materialPriceList[postTypeName];
+                // Use currentMaterialPriceList for post info
+                const postInfo = currentMaterialPriceList[postTypeName];
                 let currentPostMaterialCost = 0;
 
                 if (postInfo) {
-                    const totalRequiredPostLength = quoteSections.posts.numCalculated * quoteSections.posts.length;
-                    const postUnitsNeeded = calculateUnitsNeeded(totalRequiredPostLength, postInfo.unitLength);
+                    // Calculate how many posts can be cut from one stock length
+                    const postsPerStockLength = Math.floor(postInfo.unitLength / quoteSections.posts.length);
+
+                    if (postsPerStockLength <= 0) {
+                        errors.push(`Post length (${quoteSections.posts.length}mm) is too long to be cut from a single stock length (${postInfo.unitLength}mm). Adjust fence height or post length settings.`);
+                        errorMessageDiv.style.display = 'block';
+                        errorMessageDiv.innerHTML = errors.map(err => `<div>- ${err}</div>`).join('');
+                        return; // Stop calculation if posts cannot be cut
+                    }
+
+                    // Calculate the number of stock lengths needed
+                    const postUnitsNeeded = Math.ceil(quoteSections.posts.numCalculated / postsPerStockLength);
+
                     const rawCostOfPosts = postUnitsNeeded * postInfo.pricePerUnit;
-                    const costOfPostsWithProfit = rawCostOfPosts * (1 + currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
+                    const costOfPostsWithProfit = rawCostOfPosts * (1 + currentProfitMargins.PROFIT_POSTS_MATERIAL); // Use new POSTS margin
 
                     quoteSections.posts.materialsBreakdown.push({
                         name: postTypeName,
                         displayAmount: postUnitsNeeded,
-                        unitType: `x ${postInfo.unitLength}mm lengths (Total ${totalRequiredPostLength.toFixed(0)}mm for ${quoteSections.posts.numCalculated} posts @ ${quoteSections.posts.length.toFixed(0)}mm each)`,
-                        cost: costOfPostsWithProfit
+                        unitType: `x ${postInfo.unitLength}mm lengths (yields ${postsPerStockLength} posts per length for total ${quoteSections.posts.numCalculated} posts @ ${quoteSections.posts.length.toFixed(0)}mm each)`,
+                        cost: costOfPostsWithProfit,
+                        rawCost: rawCostOfPosts // Store raw cost
                     });
                     currentPostMaterialCost += costOfPostsWithProfit;
 
                     // Add material cost for caps
                     const capType = postSize === 65 ? '65x65 Caps' : '90x90 Caps';
-                    const capInfo = materialPriceList[capType];
+                    // Use currentMaterialPriceList for cap info
+                    const capInfo = currentMaterialPriceList[capType];
                     if (capInfo) {
                         const rawCapsMaterialCost = quoteSections.posts.numCalculated * capInfo.pricePerUnit;
-                        const capsMaterialCostWithProfit = rawCapsMaterialCost * (1 + currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL);
+                        const capsMaterialCostWithProfit = rawCapsMaterialCost * (1 + currentProfitMargins.PROFIT_CAPS_BRACKETS_MATERIAL); // Use new CAPS_BRACKETS margin
                         quoteSections.posts.materialsBreakdown.push({
                             name: capType,
                             displayAmount: quoteSections.posts.numCalculated,
                             unitType: 'pcs',
-                            cost: capsMaterialCostWithProfit
+                            cost: capsMaterialCostWithProfit,
+                            rawCost: rawCapsMaterialCost // Store raw cost
                         });
                         currentPostMaterialCost += capsMaterialCostWithProfit;
                     } else {
@@ -1646,30 +2216,40 @@
                     quoteSections.totalMaterialCostWithProfit += currentPostMaterialCost;
 
                     // Powder coating for posts
-                    const totalPostLengthMeters = totalRequiredPostLength / 1000;
+                    const totalPostLengthMeters = (quoteSections.posts.numCalculated * quoteSections.posts.length) / 1000;
                     const powderCoatingRateForPost = powderCoatingRates[postTypeName];
                     const rawPowderCoatingCostForPosts = totalPostLengthMeters * powderCoatingRateForPost;
-                    const powderCoatingCostForPostsWithProfit = rawPowderCoatingCostForPosts * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                    powderCoatingCostForPostsWithProfit = rawPowderCoatingCostForPosts * (1 + currentProfitMargins.PROFIT_POWDER_COATING); // Assign to outer variable
 
                     quoteSections.powderCoating.breakdown.push({
                         name: `${postTypeName} Powder Coat`,
                         displayAmount: totalPostLengthMeters.toFixed(2),
                         unitType: `meters`,
-                        cost: powderCoatingCostForPostsWithProfit
+                        cost: powderCoatingCostForPostsWithProfit,
+                        rawCost: rawPowderCoatingCostForPosts // Store raw cost
                     });
                     quoteSections.powderCoating.baseCost += powderCoatingCostForPostsWithProfit;
+
+                    // Installation for posts
+                    if (overallBoundaryLength > 0) {
+                        quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_POSTS_FIXED;
+                    }
+
+                    // Calculate total for professional quote
+                    totalPostsCost = quoteSections.posts.materialCost + powderCoatingCostForPostsWithProfit + currentInstallationCosts.INSTALL_POSTS_FIXED;
+
                 } else {
                     errors.push(`Price information for ${postTypeName} not found.`);
-                }
-
-                // Installation for posts
-                if (overallBoundaryLength > 0) {
-                    quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_POSTS_FIXED;
                 }
             }
 
 
             // --- Sliding Gate Material Calculation ---
+            let powderCoatingCostForSlidingGateWithProfit = 0;
+            let powderCoatingCostForGuideBracketWithProfit = 0;
+            let powderCoatingCostFor50mmCatchWithProfit = 0;
+            let totalSlidingGateCost = 0; // For professional quote summary
+
             if (quoteSections.slidingGate.present) {
                 const sGateLength = quoteSections.slidingGate.length;
                 const sGateHeight = fenceHeight;
@@ -1698,7 +2278,8 @@
 
                 for (const materialName in slidingGateRawMaterials) {
                     const requiredAmount = slidingGateRawMaterials[materialName];
-                    const materialInfo = materialPriceList[materialName];
+                    // Use currentMaterialPriceList for material info
+                    const materialInfo = currentMaterialPriceList[materialName];
                     if (requiredAmount > 0 && materialInfo) {
                         let rawCostForMaterial = 0; let displayAmount = 0; let unitType = '';
                         if (materialName === 'Picket Top') {
@@ -1714,7 +2295,7 @@
                             rawCostForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
                         const costForMaterialWithProfit = rawCostForMaterial * (1 + currentProfitMargins.PROFIT_SLIDING_GATE_MATERIAL);
-                        quoteSections.slidingGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        quoteSections.slidingGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit, rawCost: rawCostForMaterial }); // Store raw cost
                         currentSlidingGateMaterialCost += costForMaterialWithProfit;
                     }
                 }
@@ -1724,13 +2305,14 @@
                 // Powder coating for sliding gate
                 const gateSurfaceAreaM2 = (sGateLength / 1000) * (sGateHeight / 1000);
                 const rawPowderCoatingCostForSlidingGate = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
-                const powderCoatingCostForSlidingGateWithProfit = rawPowderCoatingCostForSlidingGate * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                powderCoatingCostForSlidingGateWithProfit = rawPowderCoatingCostForSlidingGate * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Sliding Gate Frame Powder Coat`,
                     displayAmount: gateSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForSlidingGateWithProfit
+                    cost: powderCoatingCostForSlidingGateWithProfit,
+                    rawCost: rawPowderCoatingCostForSlidingGate // Store raw cost
                 });
                 quoteSections.powderCoating.baseCost += powderCoatingCostForSlidingGateWithProfit;
 
@@ -1744,14 +2326,15 @@
 
                     const fittingItems = [
                         { name: 'Guide Rollers', qty: 2, key: 'Guide Rollers', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
-                        { name: 'Guide Bracket', qty: 1, key: 'Guide Bracket', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true },
+                        { name: 'Guide Bracket', qty: 1, key: 'Guide Bracket', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true, powderCoatVar: 'powderCoatingCostForGuideBracketWithProfit' },
                         { name: '100x50 Cap', qty: 2, key: '100x50 Cap', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
                         { name: 'Gate Wheel', qty: 2, key: 'Gate Wheel', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: false },
-                        { name: '50mm Catch', qty: 1, key: '50mm Catch', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true },
+                        { name: '50mm Catch', qty: 1, key: '50mm Catch', profitMargin: currentProfitMargins.PROFIT_GATE_MOTOR_HARDWARE, powderCoat: true, powderCoatVar: 'powderCoatingCostFor50mmCatchWithProfit' },
                     ];
 
                     fittingItems.forEach(item => {
-                        const materialInfo = materialPriceList[item.key];
+                        // Use currentMaterialPriceList for material info
+                        const materialInfo = currentMaterialPriceList[item.key];
                         if (materialInfo) {
                             const rawCost = item.qty * materialInfo.pricePerUnit;
                             const costWithProfit = rawCost * (1 + item.profitMargin);
@@ -1759,7 +2342,8 @@
                                 name: item.name,
                                 displayAmount: item.qty,
                                 unitType: 'pcs',
-                                cost: costWithProfit
+                                cost: costWithProfit,
+                                rawCost: rawCost // Store raw cost
                             });
                             currentSlidingGateFittingsMaterialCost += costWithProfit;
 
@@ -1771,9 +2355,16 @@
                                     name: `${item.name} Powder Coat`,
                                     displayAmount: item.qty,
                                     unitType: 'pcs',
-                                    cost: powderCoatCostWithProfit
+                                    cost: powderCoatCostWithProfit,
+                                    rawCost: rawPowderCoatCost // Store raw cost
                                 });
                                 quoteSections.powderCoating.baseCost += powderCoatCostWithProfit;
+
+                                if (item.powderCoatVar === 'powderCoatingCostForGuideBracketWithProfit') {
+                                    powderCoatingCostForGuideBracketWithProfit = powderCoatCostWithProfit;
+                                } else if (item.powderCoatVar === 'powderCoatingCostFor50mmCatchWithProfit') {
+                                    powderCoatingCostFor50mmCatchWithProfit = powderCoatCostWithProfit;
+                                }
                             }
 
                         } else {
@@ -1782,7 +2373,8 @@
                     });
 
                     // Gate Track calculation (dynamic based on gate length)
-                    const gateTrackInfo = materialPriceList['Gate Track'];
+                    // Use currentMaterialPriceList for gate track info
+                    const gateTrackInfo = currentMaterialPriceList['Gate Track'];
                     if (gateTrackInfo) {
                         const requiredTrackLengthMM = Math.max(0, (sGateLength - 2000)) * 2;
                         const trackUnitsNeeded = calculateUnitsNeeded(requiredTrackLengthMM, gateTrackInfo.unitLength);
@@ -1792,7 +2384,8 @@
                             name: 'Gate Track',
                             displayAmount: trackUnitsNeeded,
                             unitType: `x ${gateTrackInfo.unitLength/1000}m lengths (Total ${requiredTrackLengthMM.toFixed(0)}mm)`,
-                            cost: costOfTrackWithProfit
+                            cost: costOfTrackWithProfit,
+                            rawCost: rawCostOfTrack // Store raw cost
                         });
                         currentSlidingGateFittingsMaterialCost += costOfTrackWithProfit;
                     } else {
@@ -1802,11 +2395,17 @@
                     quoteSections.slidingGateFittings.materialCost = currentSlidingGateFittingsMaterialCost;
                     quoteSections.totalMaterialCostWithProfit += currentSlidingGateFittingsMaterialCost;
                 }
+                totalSlidingGateCost = quoteSections.slidingGate.materialCost + quoteSections.slidingGateFittings.materialCost + powderCoatingCostForSlidingGateWithProfit + powderCoatingCostForGuideBracketWithProfit + powderCoatingCostFor50mmCatchWithProfit + currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED;
             }
 
 
             // --- Pedestrian Gate Material Calculation ---
-            if (quoteSections.pedestrianGate.present) {
+            let powderCoatingCostForPedestrianGateFrameWithProfit = 0;
+            let hingesPowderCostWithProfit = 0;
+            let latchPowderCostWithProfit = 0;
+            let totalPedestrianGateCost = 0; // For professional quote summary
+
+            if (pedestrianGateYes.checked) {
                 const pGateWidth = quoteSections.pedestrianGate.width;
                 const pGateHeight = fenceHeight;
                 const chosenHingeType = quoteSections.pedestrianGate.hingeType;
@@ -1814,8 +2413,9 @@
                 let currentPedestrianGateMaterialCost = 0;
 
                 // First, add costs for hinges and latches (material cost)
-                const hingeInfo = materialPriceList[chosenHingeType];
-                const latchInfo = materialPriceList[chosenLatchType];
+                // Use currentMaterialPriceList for hinge and latch info
+                const hingeInfo = currentMaterialPriceList[chosenHingeType];
+                const latchInfo = currentMaterialPriceList[chosenLatchType];
 
                 if (hingeInfo) {
                     const rawHingesCost = hingeInfo.pricePerUnit * 2;
@@ -1824,7 +2424,8 @@
                         name: chosenHingeType,
                         displayAmount: 2,
                         unitType: 'pcs',
-                        cost: hingesCostWithProfit
+                        cost: hingesCostWithProfit,
+                        rawCost: rawHingesCost // Store raw cost
                     });
                     currentPedestrianGateMaterialCost += hingesCostWithProfit;
                 } else {
@@ -1838,7 +2439,8 @@
                         name: chosenLatchType,
                         displayAmount: 1,
                         unitType: 'pcs',
-                        cost: latchCostWithProfit
+                        cost: latchCostWithProfit,
+                        rawCost: rawLatchCost // Store raw cost
                     });
                     currentPedestrianGateMaterialCost += latchCostWithProfit;
                 } else {
@@ -1865,7 +2467,8 @@
 
                 for (const materialName in pedestrianGateRawMaterials) {
                     const requiredAmount = pedestrianGateRawMaterials[materialName];
-                    const materialInfo = materialPriceList[materialName];
+                    // Use currentMaterialPriceList for material info
+                    const materialInfo = currentMaterialPriceList[materialName];
                     if (requiredAmount > 0 && materialInfo) {
                         let rawCostForMaterial = 0; let displayAmount = 0; let unitType = '';
                         if (materialName === 'Picket Top') {
@@ -1881,7 +2484,7 @@
                             rawCostForMaterial = unitsNeeded * materialInfo.pricePerUnit; displayAmount = unitsNeeded; unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
                         const costForMaterialWithProfit = rawCostForMaterial * (1 + currentProfitMargins.PROFIT_PEDESTRIAN_GATE_MATERIAL);
-                        quoteSections.pedestrianGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        quoteSections.pedestrianGate.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit, rawCost: rawCostForMaterial }); // Store raw cost
                         currentPedestrianGateMaterialCost += costForMaterialWithProfit;
                     }
                 }
@@ -1891,45 +2494,55 @@
                 // Powder coating for pedestrian gate (frame)
                 const gateSurfaceAreaM2 = (pGateWidth / 1000) * (pGateHeight / 1000);
                 const rawPowderCoatingCostForPedestrianGateFrame = gateSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
-                const powderCoatingCostForPedestrianGateFrameWithProfit = rawPowderCoatingCostForPedestrianGateFrame * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                powderCoatingCostForPedestrianGateFrameWithProfit = rawPowderCoatingCostForPedestrianGateFrame * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Pedestrian Gate Frame Powder Coat`,
                     displayAmount: gateSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForPedestrianGateFrameWithProfit
+                    cost: powderCoatingCostForPedestrianGateFrameWithProfit,
+                    rawCost: rawPowderCoatingCostForPedestrianGateFrame // Store raw cost
                 });
                 quoteSections.powderCoating.baseCost += powderCoatingCostForPedestrianGateFrameWithProfit;
 
                 // Powder coating for hinges and latch if applicable
                 if (chosenHingeType === 'Adjustable Hinges') {
                     const rawHingesPowderCost = 2 * powderCoatingRates['Per_Piece_Powder_Coat'];
-                    const hingesPowderCostWithProfit = rawHingesPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                    hingesPowderCostWithProfit = rawHingesPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: `${chosenHingeType} Powder Coat`,
                         displayAmount: 2,
                         unitType: 'pcs',
-                        cost: hingesPowderCostWithProfit
+                        cost: hingesPowderCostWithProfit,
+                        rawCost: rawHingesPowderCost // Store raw cost
                     });
                     quoteSections.powderCoating.baseCost += hingesPowderCostWithProfit;
                 }
                 if (chosenLatchType === 'D latch') {
                     const rawLatchPowderCost = 1 * powderCoatingRates['Per_Piece_Powder_Coat'];
-                    const latchPowderCostWithProfit = rawLatchPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                    latchPowderCostWithProfit = rawLatchPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: `${chosenLatchType} Powder Coat`,
                         displayAmount: 1,
                         unitType: 'pcs',
-                        cost: latchPowderCostWithProfit
+                        cost: latchPowderCostWithProfit,
+                        rawCost: rawLatchPowderCost // Store raw cost
                     });
                     quoteSections.powderCoating.baseCost += latchPowderCostWithProfit;
                 }
 
                 // Installation for pedestrian gate
                 quoteSections.totalInstallationCost += currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED;
+
+                totalPedestrianGateCost = quoteSections.pedestrianGate.materialCost + powderCoatingCostForPedestrianGateFrameWithProfit + hingesPowderCostWithProfit + latchPowderCostWithProfit + currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED;
             }
 
             // --- Fence Panels Calculation ---
+            let powderCoatingCostForFencePanelsWithProfit = 0;
+            let bracketsPowderCostWithProfit = 0;
+            let panelInstallCost = 0;
+            let totalFencePanelsCost = 0; // For professional quote summary
+
             if (quoteSections.fencePanels.present && quoteSections.fencePanels.individualPanelLengths.length > 0) {
                 const fenceHeight = parseFloat(fenceHeightInput.value) || 0;
                 let currentFencePanelsMaterialCost = 0;
@@ -1957,7 +2570,8 @@
 
                 for (const materialName in panelRawMaterialsAggregated) {
                     const requiredAmount = panelRawMaterialsAggregated[materialName];
-                    const materialInfo = materialPriceList[materialName];
+                    // Use currentMaterialPriceList for material info
+                    const materialInfo = currentMaterialPriceList[materialName];
 
                     if (requiredAmount > 0 && materialInfo) {
                         let rawCostForMaterial = 0;
@@ -1979,7 +2593,7 @@
                              rawCostForMaterial = requiredAmount * materialInfo.pricePerUnit;
                              displayAmount = requiredAmount;
                              unitType = 'pcs';
-                             profitMarginToApply = currentProfitMargins.PROFIT_POSTS_CAPS_BRACKETS_MATERIAL; // Use specific profit for brackets
+                             profitMarginToApply = currentProfitMargins.PROFIT_CAPS_BRACKETS_MATERIAL; // Use new CAPS_BRACKETS margin for brackets
                         }
                         else { // For 40x40 SHS
                             const unitsNeeded = calculateUnitsNeeded(requiredAmount, materialInfo.unitLength);
@@ -1988,7 +2602,7 @@
                             unitType = `x ${materialInfo.unitLength}mm lengths (Total ${requiredAmount.toFixed(0)}mm)`;
                         }
                         const costForMaterialWithProfit = rawCostForMaterial * (1 + profitMarginToApply);
-                        quoteSections.fencePanels.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit });
+                        quoteSections.fencePanels.materialsBreakdown.push({ name: materialName, displayAmount: displayAmount, unitType: unitType, cost: costForMaterialWithProfit, rawCost: rawCostForMaterial }); // Store raw cost
                         currentFencePanelsMaterialCost += costForMaterialWithProfit;
                     }
                 }
@@ -1999,46 +2613,60 @@
                 // Powder coating for fence panels
                 const totalPanelSurfaceAreaM2 = (quoteSections.fencePanels.totalLength / 1000) * (fenceHeight / 1000);
                 const rawPowderCoatingCostForFencePanels = totalPanelSurfaceAreaM2 * powderCoatingRates['Panel_Gate_Area'];
-                const powderCoatingCostForFencePanelsWithProfit = rawPowderCoatingCostForFencePanels * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                powderCoatingCostForFencePanelsWithProfit = rawPowderCoatingCostForFencePanels * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
 
                 quoteSections.powderCoating.breakdown.push({
                     name: `Fence Panels Powder Coat`,
                     displayAmount: totalPanelSurfaceAreaM2.toFixed(2),
                     unitType: `sq meters`,
-                    cost: powderCoatingCostForFencePanelsWithProfit
+                    cost: powderCoatingCostForFencePanelsWithProfit,
+                    rawCost: rawPowderCoatingCostForFencePanels // Store raw cost
                 });
                 quoteSections.powderCoating.baseCost += powderCoatingCostForFencePanelsWithProfit;
 
                 // Installation for fence panels
                 const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
-                quoteSections.totalInstallationCost += (totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
+                panelInstallCost = (totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
 
                 // Add miscellaneous powder coating (rail brackets)
                 const numRailBrackets = quoteSections.fencePanels.numPanels * 4;
                 if (numRailBrackets > 0) {
                     const rawBracketsPowderCost = numRailBrackets * powderCoatingRates['Per_Piece_Powder_Coat'];
-                    const bracketsPowderCostWithProfit = rawBracketsPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
+                    bracketsPowderCostWithProfit = rawBracketsPowderCost * (1 + currentProfitMargins.PROFIT_POWDER_COATING);
                     quoteSections.powderCoating.breakdown.push({
                         name: '40x40 Rail Brackets Powder Coat',
                         displayAmount: numRailBrackets,
                         unitType: 'pcs',
-                        cost: bracketsPowderCostWithProfit
+                        cost: bracketsPowderCostWithProfit,
+                        rawCost: rawBracketsPowderCost // Store raw cost
                     });
                     quoteSections.powderCoating.baseCost += bracketsPowderCostWithProfit;
                 }
+                totalFencePanelsCost = quoteSections.fencePanels.materialCost + powderCoatingCostForFencePanelsWithProfit + bracketsPowderCostWithProfit + panelInstallCost;
             }
 
             // --- Fabrication Costs Calculation ---
+            let totalFabricationCostForSummary = 0; // Initialize for professional quote summary
             if (overallBoundaryLength > 0 || quoteSections.slidingGate.present || quoteSections.pedestrianGate.present) {
-                const totalFabricationCost = currentFabricationCosts.FABRICATION_COST_PER_DAY * currentFabricationCosts.FABRICATION_DAYS_PER_JOB;
-                quoteSections.totalFabricationCost = totalFabricationCost;
+                const rawFabricationCost = currentFabricationCosts.FABRICATION_COST_PER_DAY * currentFabricationCosts.FABRICATION_DAYS_PER_JOB;
+                // Assuming fabrication has no direct profit margin or it's included in the daily rate
+                quoteSections.totalFabricationCost = rawFabricationCost;
+                totalFabricationCostForSummary = rawFabricationCost; // Capture for summary
+                quoteSections.fabrication.breakdown.push({
+                    name: "Fabrication (Total)",
+                    displayAmount: currentFabricationCosts.FABRICATION_DAYS_PER_JOB,
+                    unitType: `days @ $${currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2)}/day`,
+                    cost: rawFabricationCost, // Here cost and rawCost are the same as no profit applied
+                    rawCost: rawFabricationCost
+                });
             }
 
             // --- Final Calculations and Display ---
-            const finalOverallCost = quoteSections.totalMaterialCostWithProfit + quoteSections.powderCoating.baseCost + quoteSections.totalInstallationCost + quoteSections.totalFabricationCost;
+            // Sum up all calculated costs for the total quote
+            const finalOverallCost = totalPostsCost + totalSlidingGateCost + (quoteSections.gateMotors.present ? (quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost + motorInstallCostForSummary) : 0) + totalPedestrianGateCost + totalFencePanelsCost + totalFabricationCostForSummary;
 
 
-            let hasContentToDisplay = false;
+            let hasContentToDisplay = false; // Check if any section has content to display in general results
 
             // Posts Section Display
             if (quoteSections.posts.materialCost > 0 || quoteSections.posts.numCalculated > 0) {
@@ -2047,7 +2675,7 @@
                 calculatedPostLengthDisplay.textContent = `${quoteSections.posts.length.toFixed(0)}mm`;
                 postsMaterialsDiv.innerHTML = '';
                 quoteSections.posts.materialsBreakdown.forEach(mat => {
-                    postsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    postsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 postsSubtotalSpan.textContent = `$${quoteSections.posts.materialCost.toFixed(2)}`;
                 postsSectionTitle.textContent = `Posts ($${quoteSections.posts.materialCost.toFixed(2)})`; // Update button text with subtotal
@@ -2059,7 +2687,7 @@
                 slidingGateSection.classList.remove('hidden');
                 slidingGateMaterialsDiv.innerHTML = '';
                 quoteSections.slidingGate.materialsBreakdown.forEach(mat => {
-                    slidingGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    slidingGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 slidingGateSubtotalSpan.textContent = `$${quoteSections.slidingGate.materialCost.toFixed(2)}`;
                 slidingGateSectionTitle.textContent = `Sliding Gate ($${quoteSections.slidingGate.materialCost.toFixed(2)})`; // Update button text with subtotal
@@ -2071,7 +2699,7 @@
                 slidingGateFittingsSection.classList.remove('hidden');
                 slidingGateFittingsMaterialsDiv.innerHTML = '';
                 quoteSections.slidingGateFittings.materialsBreakdown.forEach(mat => {
-                    slidingGateFittingsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    slidingGateFittingsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 slidingGateFittingsSubtotalSpan.textContent = `$${quoteSections.slidingGateFittings.materialCost.toFixed(2)}`;
                 slidingGateFittingsSectionTitle.textContent = `Sliding Gate Fittings ($${quoteSections.slidingGateFittings.materialCost.toFixed(2)})`; // Update button text with subtotal
@@ -2084,7 +2712,7 @@
                 gateMotorsMaterialsDiv.innerHTML = '';
                 // Display motor first
                 quoteSections.gateMotors.motorBreakdown.forEach(mat => {
-                    gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 // Then hardware
                 if (quoteSections.gateMotors.hardwareBreakdown.length > 0) {
@@ -2093,7 +2721,7 @@
                          gateMotorsMaterialsDiv.innerHTML += `<div class="font-semibold text-gray-700 mt-2">Motor Add-ons:</div>`;
                      }
                     quoteSections.gateMotors.hardwareBreakdown.forEach(mat => {
-                        gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                        gateMotorsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                     });
                 }
                 const gateMotorsTotal = quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost;
@@ -2107,7 +2735,7 @@
                 pedestrianGateSection.classList.remove('hidden');
                 pedestrianGateMaterialsDiv.innerHTML = '';
                 quoteSections.pedestrianGate.materialsBreakdown.forEach(mat => {
-                    pedestrianGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    pedestrianGateMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 pedestrianGateSubtotalSpan.textContent = `$${quoteSections.pedestrianGate.materialCost.toFixed(2)}`;
                 pedestrianGateSectionTitle.textContent = `Pedestrian Gate ($${quoteSections.pedestrianGate.materialCost.toFixed(2)})`; // Update button text with subtotal
@@ -2126,7 +2754,7 @@
 
                 fencePanelsMaterialsDiv.innerHTML = ''; // Clear only the material list for panels
                 quoteSections.fencePanels.materialsBreakdown.forEach(mat => {
-                    fencePanelsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.cost);
+                    fencePanelsMaterialsDiv.innerHTML += formatLineItem(mat.name, mat.displayAmount, mat.unitType, mat.rawCost, mat.cost);
                 });
                 fencePanelsSubtotalSpan.textContent = `$${quoteSections.fencePanels.materialCost.toFixed(2)}`;
                 fencePanelsSectionTitle.textContent = `Fence Panels ($${quoteSections.fencePanels.materialCost.toFixed(2)})`; // Update button text with subtotal
@@ -2140,7 +2768,7 @@
                 powderCoatingSection.classList.remove('hidden');
                 powderCoatingDetailsDiv.innerHTML = '';
                 quoteSections.powderCoating.breakdown.forEach(item => {
-                    powderCoatingDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.cost);
+                    powderCoatingDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.rawCost, item.cost);
                 });
                 powderCoatingTotalSpan.textContent = `$${quoteSections.powderCoating.baseCost.toFixed(2)}`;
                 powderCoatingSectionTitle.textContent = `Powder Coating ($${quoteSections.powderCoating.baseCost.toFixed(2)})`; // Update button text with subtotal
@@ -2148,9 +2776,13 @@
             }
 
             // Fabrication Costs Section Display
+            // Note: For Fabrication and Installation, we assume the input cost is already the "final" cost with no further profit layer
             if (quoteSections.totalFabricationCost > 0) {
                 fabricationCostsSection.classList.remove('hidden');
-                fabricationDetailsDiv.innerHTML = formatLineItem("Fabrication Cost (per day)", currentFabricationCosts.FABRICATION_DAYS_PER_JOB, 'days @ $' + currentFabricationCosts.FABRICATION_COST_PER_DAY.toFixed(2) + '/day', quoteSections.totalFabricationCost);
+                // The rawCost for fabrication is the total fabrication cost itself in this context
+                quoteSections.fabrication.breakdown.forEach(item => { // Iterate over the breakdown
+                    fabricationDetailsDiv.innerHTML += formatLineItem(item.name, item.displayAmount, item.unitType, item.rawCost, item.cost);
+                });
                 fabricationTotalSpan.textContent = `$${quoteSections.totalFabricationCost.toFixed(2)}`;
                 fabricationCostsSectionTitle.textContent = `Fabrication ($${quoteSections.totalFabricationCost.toFixed(2)})`; // Update button text with subtotal
                 hasContentToDisplay = true;
@@ -2162,17 +2794,21 @@
                 installationCostsSection.classList.remove('hidden');
                 installationDetailsDiv.innerHTML = '';
                 if (overallBoundaryLength > 0) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Post Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_POSTS_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Post Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_POSTS_FIXED, currentInstallationCosts.INSTALL_POSTS_FIXED);
                 }
                 if (quoteSections.slidingGate.present) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Sliding Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Sliding Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED, currentInstallationCosts.INSTALL_SLIDING_GATE_FIXED);
                 }
                 if (quoteSections.pedestrianGate.present) {
-                    installationDetailsDiv.innerHTML += formatLineItem("Pedestrian Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED);
+                    installationDetailsDiv.innerHTML += formatLineItem("Pedestrian Gate Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED, currentInstallationCosts.INSTALL_PEDESTRIAN_GATE_FIXED);
                 }
                 if (quoteSections.fencePanels.present) {
                     const totalPanelsLengthMeters = quoteSections.fencePanels.totalLength / 1000;
-                    installationDetailsDiv.innerHTML += formatLineItem("Panel Installation (per meter)", totalPanelsLengthMeters.toFixed(2), 'meters', totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER);
+                    const panelInstallCostDisplay = totalPanelsLengthMeters * currentInstallationCosts.INSTALL_PANELS_PER_METER;
+                    installationDetailsDiv.innerHTML += formatLineItem("Panel Installation (per meter)", totalPanelsLengthMeters.toFixed(2), 'meters', panelInstallCostDisplay, panelInstallCostDisplay);
+                }
+                if (quoteSections.gateMotors.present) { // Add motor installation to details
+                    installationDetailsDiv.innerHTML += formatLineItem("Motor Installation (fixed)", 1, 'job', currentInstallationCosts.INSTALL_MOTOR_FIXED, currentInstallationCosts.INSTALL_MOTOR_FIXED);
                 }
                 installationTotalSpan.textContent = `$${quoteSections.totalInstallationCost.toFixed(2)}`;
                 installationCostsSectionTitle.textContent = `Installation ($${quoteSections.totalInstallationCost.toFixed(2)})`; // Update button text with subtotal
@@ -2202,6 +2838,77 @@
                 };
                 drawFenceLayout(layoutData);
 
+                // --- Generate Professional Quote Summary ---
+                let professionalQuoteHtml = '';
+
+                // Posts Line Item
+                if (totalPostsCost > 0) {
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        `Supply and install ${quoteSections.posts.numCalculated} ${postSize}x${postSize} posts @ ${quoteSections.posts.length.toFixed(0)}mm`,
+                        totalPostsCost
+                    );
+                }
+
+                // Sliding Gate Line Item
+                if (totalSlidingGateCost > 0) {
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        `Supply and install blade ${fenceHeight.toFixed(0)}mm x ${quoteSections.slidingGate.length.toFixed(0)}mm sliding gate`,
+                        totalSlidingGateCost
+                    );
+                }
+
+                // Gate Motor Line Item
+                if (quoteSections.gateMotors.present) {
+                    let motorDescription = `Supply and install DEA ${motorTypeSelect.value}`;
+                    const ziggyQty = parseInt(ziggyRemoteQtyInput.value);
+                    if (ziggyRemoteCheckbox.checked && ziggyQty > 0) {
+                        motorDescription += ` w/ ${ziggyQty} remote${ziggyQty > 1 ? 's' : ''}`;
+                    } else {
+                        motorDescription += ` w/ 2 remotes`; // Default phrasing
+                    }
+                    if (batteryBackupCheckbox.checked) {
+                        motorDescription += `, Battery backup`;
+                    }
+                    if (antennaCheckbox.checked) {
+                        motorDescription += `, and Antenna`;
+                    }
+                    // Sum of motor material, hardware, and installation for the summary line
+                    const totalGateMotorsCostForSummary = quoteSections.gateMotors.motorMaterialCost + quoteSections.gateMotors.hardwareMaterialCost + motorInstallCostForSummary;
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        motorDescription,
+                        totalGateMotorsCostForSummary
+                    );
+                }
+
+                // Pedestrian Gate Line Item
+                if (totalPedestrianGateCost > 0) {
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        `Supply and install ${fenceHeight.toFixed(0)}mm x ${quoteSections.pedestrianGate.width.toFixed(0)}mm PA gate`,
+                        totalPedestrianGateCost
+                    );
+                }
+
+                // Fence Panels Line Item
+                if (totalFencePanelsCost > 0) {
+                    const panelDisplayString = getPanelDisplayString(quoteSections.fencePanels.individualPanelLengths, IDEAL_PANEL_2_4M);
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        `Supply and install ${panelDisplayString} Blade fence panels`,
+                        totalFencePanelsCost
+                    );
+                }
+
+                // Fabrication Line Item
+                if (totalFabricationCostForSummary > 0) {
+                    professionalQuoteHtml += formatProfessionalQuoteLineItem(
+                        `Fabrication costs for ${currentFabricationCosts.FABRICATION_DAYS_PER_JOB} days`,
+                        totalFabricationCostForSummary
+                    );
+                }
+
+
+                quoteSummaryItemsDiv.innerHTML = professionalQuoteHtml;
+                finalProfessionalQuoteTotalSpan.textContent = `$${finalOverallCost.toFixed(2)}`;
+                professionalQuoteSummaryDiv.classList.remove('hidden');
             } else {
                 showMessageBox("No Items Selected", "Please enter details for at least one section (Overall Boundary or Gates) to generate a quote.");
             }
@@ -2210,26 +2917,162 @@
         });
 
         /**
-         * Initializes the advanced settings input fields with default values.
+         * Saves the current advanced settings to localStorage.
+         */
+        function saveSettings() {
+            const settings = {
+                profitSlidingGateMaterial: profitSlidingGateMaterialInput.value,
+                profitPedestrianGateMaterial: profitPedestrianGateMaterialInput.value,
+                profitPanelsMaterial: profitPanelsMaterialInput.value,
+                profitPostsMaterial: profitPostsMaterialInput.value,
+                profitCapsBracketsMaterial: profitCapsBracketsMaterialInput.value,
+                profitPowderCoating: profitPowderCoatingInput.value,
+                profitGateMotors: profitGateMotorsInput.value,
+                profitGateMotorHardware: profitGateMotorHardwareInput.value,
+
+                installPostsFixed: installPostsFixedInput.value,
+                installSlidingGateFixed: installSlidingGateFixedInput.value,
+                installPedestrianGateFixed: installPedestrianGateFixedInput.value,
+                installPanelsPerMeter: installPanelsPerMeterInput.value,
+                installMotorFixed: installMotorFixedInput.value, // Save new motor install cost
+
+                fabricationCostPerDay: fabricationCostPerDayInput.value,
+                fabricationDaysPerJob: fabricationDaysPerJobInput.value,
+
+                materialCosts: {} // To store dynamic material costs
+            };
+
+            // Capture all dynamic material costs
+            for (const key in defaultMaterialPriceList) {
+                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                const inputElement = document.getElementById(inputId);
+                if (inputElement) {
+                    settings.materialCosts[key] = inputElement.value;
+                }
+            }
+
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+                console.log("Settings saved to localStorage.");
+            } catch (e) {
+                console.error("Error saving to localStorage:", e);
+                // No need for a message box here, as it might appear too often on subtle storage issues.
+            }
+        }
+
+        /**
+         * Loads advanced settings from localStorage.
+         */
+        function loadSettings() {
+            try {
+                const savedSettings = localStorage.getItem(STORAGE_KEY);
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+
+                    // Populate profit margins
+                    profitSlidingGateMaterialInput.value = settings.profitSlidingGateMaterial || Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
+                    profitPedestrianGateMaterialInput.value = settings.profitPedestrianGateMaterial || Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
+                    profitPanelsMaterialInput.value = settings.profitPanelsMaterial || Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
+                    profitPostsMaterialInput.value = settings.profitPostsMaterial || Math.round(DEFAULT_PROFIT_POSTS_MATERIAL * 100);
+                    profitCapsBracketsMaterialInput.value = settings.profitCapsBracketsMaterial || Math.round(DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL * 100);
+                    profitPowderCoatingInput.value = settings.profitPowderCoating || Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
+                    profitGateMotorsInput.value = settings.profitGateMotors || Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
+                    profitGateMotorHardwareInput.value = settings.profitGateMotorHardware || Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+
+                    // Populate installation costs
+                    installPostsFixedInput.value = settings.installPostsFixed || DEFAULT_INSTALL_POSTS_FIXED;
+                    installSlidingGateFixedInput.value = settings.installSlidingGateFixed || DEFAULT_INSTALL_SLIDING_GATE_FIXED;
+                    installPedestrianGateFixedInput.value = settings.installPedestrianGateFixed || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
+                    installPanelsPerMeterInput.value = settings.installPanelsPerMeter || DEFAULT_INSTALL_PANELS_PER_METER;
+                    installMotorFixedInput.value = settings.installMotorFixed || DEFAULT_INSTALL_MOTOR_FIXED; // Load new motor install cost
+
+                    // Populate fabrication costs
+                    fabricationCostPerDayInput.value = settings.fabricationCostPerDay || DEFAULT_FABRICATION_COST_PER_DAY;
+                    fabricationDaysPerJobInput.value = settings.fabricationDaysPerJob || DEFAULT_FABRICATION_DAYS_PER_JOB;
+
+                    // Populate dynamic material costs (ensure elements exist first)
+                    // This part needs to run AFTER materialCostInputsDiv is populated
+                    // This listener ensures the dynamic inputs exist before trying to set their values
+                    document.addEventListener('DOMContentLoaded', () => { // This listener is likely redundant if called after init
+                         if (settings.materialCosts) {
+                            for (const key in settings.materialCosts) {
+                                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                                const inputElement = document.getElementById(inputId);
+                                if (inputElement) {
+                                    inputElement.value = settings.materialCosts[key];
+                                }
+                            }
+                        }
+                    });
+
+                    console.log("Settings loaded from localStorage.");
+                    return true; // Settings loaded successfully
+                }
+            } catch (e) {
+                console.error("Error loading or parsing settings from localStorage:", e);
+                // Fallback to defaults if there's an error
+            }
+            return false; // No settings loaded
+        }
+
+
+        /**
+         * Initializes the advanced settings input fields with default values,
+         * or loads from localStorage if available.
          */
         function initializeAdvancedSettings() {
-            // Use Math.round to ensure whole numbers for profit percentages
-            profitSlidingGateMaterialInput.value = Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
-            profitPedestrianGateMaterialInput.value = Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
-            profitPanelsMaterialInput.value = Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
-            profitPostsCapsBracketsMaterialInput.value = Math.round(DEFAULT_PROFIT_POSTS_CAPS_BRACKETS_MATERIAL * 100);
-            profitPowderCoatingInput.value = Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
-            profitGateMotorsInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
-            profitGateMotorHardwareInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+            // Dynamically create and populate material cost inputs first,
+            // so loadSettings can find them.
+            materialCostInputsDiv.innerHTML = ''; // Clear previous inputs
+            for (const key in defaultMaterialPriceList) {
+                const materialLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                const currentValue = defaultMaterialPriceList[key].pricePerUnit;
 
-            installPostsFixedInput.value = DEFAULT_INSTALL_POSTS_FIXED;
-            installSlidingGateFixedInput.value = DEFAULT_INSTALL_SLIDING_GATE_FIXED;
-            installPedestrianGateFixedInput.value = DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
-            installPanelsPerMeterInput.value = DEFAULT_INSTALL_PANELS_PER_METER;
+                const inputHtml = `
+                    <div class="input-group">
+                        <label for="${inputId}">${materialLabel}:</label>
+                        <div class="relative mt-1">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">$</span>
+                            <input type="number" id="${inputId}" class="block w-full input-with-symbol-left" value="${currentValue.toFixed(2)}" min="0" step="0.01">
+                        </div>
+                    </div>
+                `;
+                materialCostInputsDiv.innerHTML += inputHtml;
+            }
 
-            fabricationCostPerDayInput.value = DEFAULT_FABRICATION_COST_PER_DAY;
-            fabricationDaysPerJobInput.value = DEFAULT_FABRICATION_DAYS_PER_JOB;
+            // Now attempt to load saved settings. If unsuccessful, fall back to default values.
+            if (!loadSettings()) {
+                // Only set defaults if loadSettings() returns false (i.e., no saved settings or error)
+                profitSlidingGateMaterialInput.value = Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
+                profitPedestrianGateMaterialInput.value = Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
+                profitPanelsMaterialInput.value = Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
+                profitPostsMaterialInput.value = Math.round(DEFAULT_PROFIT_POSTS_MATERIAL * 100);
+                profitCapsBracketsMaterialInput.value = Math.round(DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL * 100);
+                profitPowderCoatingInput.value = Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
+                profitGateMotorsInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
+                profitGateMotorHardwareInput.value = Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+
+                installPostsFixedInput.value = DEFAULT_INSTALL_POSTS_FIXED;
+                installSlidingGateFixedInput.value = DEFAULT_INSTALL_SLIDING_GATE_FIXED;
+                installPedestrianGateFixedInput.value = DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
+                installPanelsPerMeterInput.value = DEFAULT_INSTALL_PANELS_PER_METER;
+                installMotorFixedInput.value = DEFAULT_INSTALL_MOTOR_FIXED; // Set default for new motor install cost
+
+                fabricationCostPerDayInput.value = DEFAULT_FABRICATION_COST_PER_DAY;
+                fabricationDaysPerJobInput.value = DEFAULT_FABRICATION_DAYS_PER_JOB;
+
+                // For dynamic material inputs, if loadSettings failed, their initial value is already the default from when they were generated.
+            }
+
+            // Add event listeners for input changes to save settings
+            const advancedSettingsInputs = advancedSettingsContent.querySelectorAll('input[type="number"], select');
+            advancedSettingsInputs.forEach(input => {
+                input.addEventListener('input', saveSettings);
+                input.addEventListener('change', saveSettings); // For select elements and checkboxes
+            });
         }
+
 
         // Initialize visibility on load and update panel info
         toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
@@ -2237,7 +3080,7 @@
         toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
         updateCalculatedPostLength(); // Call once on load to set initial post length display (even if hidden, for internal value)
         updateFencePanelInfo(); // Call once on load to show initial panel info
-        initializeAdvancedSettings(); // Initialize advanced settings inputs
+        initializeAdvancedSettings(); // Initialize advanced settings inputs and load saved data
 
         // Add event listeners for new toggle buttons for results sections
         document.querySelectorAll('#results .toggle-btn').forEach(button => {
