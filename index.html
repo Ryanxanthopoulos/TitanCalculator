@@ -6,360 +6,6 @@
     <title>Fencing Quote Calculator</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK Imports -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase configuration and initialization
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
-        let app;
-        let db;
-        let auth;
-        let userId; // Will store the authenticated user ID
-        let quoteToDelete = null; // Temporarily store the ID of the quote to delete
-
-
-        // Initialize Firebase on window load or when DOM is ready
-        document.addEventListener('DOMContentLoaded', async () => {
-            console.log("DOM Content Loaded. Initializing Firebase...");
-            try {
-                // Check if firebaseConfig is not empty, indicating it's properly provided by the environment
-                if (Object.keys(firebaseConfig).length > 0 && firebaseConfig.apiKey) {
-                    app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    console.log("Firebase app and services initialized.");
-
-                    // Sign in anonymously or with custom token if available
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        console.log("Attempting signInWithCustomToken...");
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        console.log("Attempting signInAnonymously...");
-                        await signInAnonymously(auth);
-                    }
-
-                    // Listen for authentication state changes
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            userId = user.uid;
-                            document.getElementById('currentUserIdDisplay').textContent = userId;
-                            console.log("Firebase authenticated. User ID:", userId);
-                            document.getElementById('saveQuoteBtn').disabled = false;
-                            document.getElementById('loadQuotesBtn').disabled = false;
-                            loadSavedQuotes(); // Load quotes once authenticated
-                        } else {
-                            userId = crypto.randomUUID(); // Fallback to a random ID if not authenticated (for unpersisted anon use)
-                            document.getElementById('currentUserIdDisplay').textContent = `Anon: ${userId.substring(0, 8)}...`;
-                            console.warn("User not authenticated or signed out. Using a new anonymous ID:", userId);
-                            document.getElementById('saveQuoteBtn').disabled = false; // Allow saving for anonymous, but it won't persist across sessions if ID changes
-                            document.getElementById('loadQuotesBtn').disabled = false;
-                            loadSavedQuotes(); // Still attempt to load, might find previous anon quotes if ID was stable (not typical without localStorage)
-                        }
-                    });
-                } else {
-                    console.warn("Firebase config is missing or incomplete. Quote saving/loading will not work.");
-                    document.getElementById('errorMessage').style.display = 'block';
-                    document.getElementById('errorMessage').textContent = "Firebase is not configured. Quote saving/loading is disabled.";
-                    document.getElementById('saveQuoteBtn').disabled = true;
-                    document.getElementById('loadQuotesBtn').disabled = true;
-                    document.getElementById('currentUserIdDisplay').textContent = "Not Connected (Config Missing)";
-                }
-            } catch (error) {
-                console.error("Error initializing Firebase:", error);
-                document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').textContent = `Firebase initialization error: ${error.message}. Quote saving/loading disabled.`;
-                document.getElementById('saveQuoteBtn').disabled = true;
-                document.getElementById('loadQuotesBtn').disabled = true;
-                document.getElementById('currentUserIdDisplay').textContent = "Error";
-            }
-        });
-
-        // Make Firebase functions globally accessible (for event listeners in HTML)
-        window.saveQuoteToFirestore = async function() {
-            console.log("Save Quote button clicked.");
-            if (!db || !userId) {
-                showMessageBox("Error", "Firebase not initialized or user not authenticated. Cannot save quote.");
-                console.error("Save failed: db or userId not available.");
-                return;
-            }
-
-            const quoteNameInput = document.getElementById('quoteNameInput');
-            const quoteName = quoteNameInput.value.trim();
-            if (!quoteName) {
-                showMessageBox("Input Required", "Please enter a name for your quote before saving.");
-                return;
-            }
-
-            // Get current input values to save them for loading later
-            const inputValues = {
-                overallBoundaryLength: overallBoundaryLengthInput.value,
-                fenceHeight: fenceHeightInput.value,
-                postSize: postSizeSelect.value,
-                slidingGate: slidingGateYes.checked,
-                slidingGateLength: slidingGateLengthInput.value,
-                gateMotor: gateMotorYes.checked,
-                motorType: motorTypeSelect.value,
-                batteryBackup: batteryBackupCheckbox.checked,
-                antenna: antennaCheckbox.checked,
-                ziggyRemote: ziggyRemoteCheckbox.checked,
-                ziggyRemoteQty: ziggyRemoteQtyInput.value,
-                pedestrianGate: pedestrianGateYes.checked,
-                pedestrianGateWidth: pedestrianGateWidthInput.value,
-                hingeType: hingeTypeSelect.value,
-                latchType: latchTypeSelect.value,
-                profitSlidingGateMaterial: profitSlidingGateMaterialInput.value,
-                profitPedestrianGateMaterial: profitPedestrianGateMaterialInput.value,
-                profitPanelsMaterial: profitPanelsMaterialInput.value,
-                profitPostsMaterial: profitPostsMaterialInput.value,
-                profitCapsBracketsMaterial: profitCapsBracketsMaterialInput.value,
-                profitPowderCoating: profitPowderCoatingInput.value,
-                profitGateMotors: profitGateMotorsInput.value,
-                profitGateMotorHardware: profitGateMotorHardwareInput.value,
-                installPostsFixed: installPostsFixedInput.value,
-                installSlidingGateFixed: installSlidingGateFixedInput.value,
-                installPedestrianGateFixed: installPedestrianGateFixedInput.value,
-                installPanelsPerMeter: installPanelsPerMeterInput.value,
-                installMotorFixed: installMotorFixedInput.value,
-                fabricationCostPerDay: fabricationCostPerDayInput.value,
-                fabricationDaysPerJob: fabricationDaysPerJobInput.value,
-                materialCosts: {} // Capture current material costs
-            };
-
-            for (const key in defaultMaterialPriceList) {
-                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
-                const inputElement = document.getElementById(inputId);
-                if (inputElement) {
-                    inputValues.materialCosts[key] = inputElement.value;
-                }
-            }
-
-
-            const quoteDataToSave = {
-                name: quoteName,
-                timestamp: Date.now(),
-                userId: userId,
-                // Store all input values required to recreate the quote
-                inputValues: inputValues,
-                // Store the calculated total and summary for quick display
-                calculatedTotal: document.getElementById('totalCost').textContent,
-                quoteSummaryHtml: document.getElementById('quoteSummaryItems').innerHTML // Save the HTML for direct display
-            };
-
-            try {
-                // Quotes are stored in a subcollection under the user's private data path
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/quotes`), quoteDataToSave);
-                showMessageBox("Quote Saved!", `Your quote "${quoteName}" has been saved successfully.`);
-                console.log("Document written with ID: ", docRef.id);
-                quoteNameInput.value = ''; // Clear the input after saving
-                loadSavedQuotes(); // Refresh the list of saved quotes
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showMessageBox("Error Saving", `Failed to save quote: ${e.message}`);
-            }
-        };
-
-
-        window.loadSavedQuotes = async function() {
-            console.log("Loading saved quotes...");
-            if (!db || !userId) {
-                console.log("Firebase not initialized or user not authenticated. Cannot load quotes.");
-                document.getElementById('savedQuotesList').innerHTML = '<p class="text-red-500 text-center">Firebase not ready or user not authenticated.</p>';
-                return;
-            }
-
-            const savedQuotesList = document.getElementById('savedQuotesList');
-            savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">Loading quotes...</p>'; // Loading indicator
-
-            try {
-                // Fetch quotes from the private user collection
-                const querySnapshot = await getDocs(collection(db, `artifacts/${appId}/users/${userId}/quotes`));
-                savedQuotesList.innerHTML = ''; // Clear loading indicator
-
-                if (querySnapshot.empty) {
-                    savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">No saved quotes found.</p>';
-                    return;
-                }
-
-                querySnapshot.forEach((doc) => {
-                    const quote = doc.data();
-                    const timestamp = new Date(quote.timestamp).toLocaleString();
-                    const listItem = document.createElement('div');
-                    // Updated styling for saved quote list items
-                    listItem.className = 'flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-4 rounded-lg shadow-md mb-3 border border-gray-200';
-                    listItem.innerHTML = `
-                        <div class="flex-grow mb-2 md:mb-0">
-                            <h4 class="font-bold text-lg text-gray-800">${quote.name}</h4>
-                            <p class="text-sm text-gray-500 mt-1">Saved: ${timestamp}</p>
-                            <p class="text-xs text-gray-400">ID: ${doc.id.substring(0, 8)}...</p>
-                        </div>
-                        <div class="flex space-x-2 flex-shrink-0 w-full md:w-auto justify-end md:justify-start">
-                            <button onclick="displayLoadedQuote('${doc.id}')" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors shadow flex-grow md:flex-grow-0">Load</button>
-                            <button onclick="showDeleteConfirmModal('${doc.id}', '${quote.name}')" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors shadow flex-grow md:flex-grow-0">Delete</button>
-                        </div>
-                    `;
-                    savedQuotesList.appendChild(listItem);
-                });
-            } catch (e) {
-                console.error("Error loading documents: ", e);
-                savedQuotesList.innerHTML = `<p class="text-red-500 text-center">Error loading quotes: ${e.message}</p>`;
-            }
-        };
-
-        window.displayLoadedQuote = async function(quoteId) {
-            console.log("Displaying loaded quote:", quoteId);
-            if (!db || !userId) {
-                showMessageBox("Error", "Firebase not initialized or user not authenticated. Cannot load quote.");
-                return;
-            }
-            try {
-                const quoteSnap = await getDocs(collection(db, `artifacts/${appId}/users/${userId}/quotes`));
-                let selectedQuoteData = null;
-                quoteSnap.forEach(doc => {
-                    if (doc.id === quoteId) {
-                        selectedQuoteData = doc.data();
-                    }
-                });
-
-
-                if (selectedQuoteData && selectedQuoteData.inputValues) {
-                    const inputValues = selectedQuoteData.inputValues;
-
-                    // Populate form fields with saved input values
-                    overallBoundaryLengthInput.value = inputValues.overallBoundaryLength || '';
-                    fenceHeightInput.value = inputValues.fenceHeight || '';
-                    postSizeSelect.value = inputValues.postSize || '65';
-
-                    if (inputValues.slidingGate) {
-                        slidingGateYes.checked = true;
-                    } else {
-                        slidingGateNo.checked = true;
-                    }
-                    toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
-                    slidingGateLengthInput.value = inputValues.slidingGateLength || '';
-
-                    if (inputValues.gateMotor) {
-                        gateMotorYes.checked = true;
-                    } else {
-                        gateMotorNo.checked = true;
-                    }
-                    toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
-                    motorTypeSelect.value = inputValues.motorType || '';
-                    batteryBackupCheckbox.checked = inputValues.batteryBackup || false;
-                    antennaCheckbox.checked = inputValues.antenna || false;
-                    ziggyRemoteCheckbox.checked = inputValues.ziggyRemote || false;
-                    // Ensure the ziggyRemoteQty input is enabled/disabled correctly based on loaded state
-                    ziggyRemoteQtyInput.disabled = !ziggyRemoteCheckbox.checked;
-                    ziggyRemoteQtyInput.value = inputValues.ziggyRemoteQty || '1';
-
-
-                    if (inputValues.pedestrianGate) {
-                        pedestrianGateYes.checked = true;
-                    } else {
-                        pedestrianGateNo.checked = true;
-                    }
-                    toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
-                    pedestrianGateWidthInput.value = inputValues.pedestrianGateWidth || '';
-                    hingeTypeSelect.value = inputValues.hingeType || 'Adjustable Hinges';
-                    latchTypeSelect.value = inputValues.latchType || 'D latch';
-
-                    // Populate advanced settings
-                    profitSlidingGateMaterialInput.value = inputValues.profitSlidingGateMaterial || Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
-                    profitPedestrianGateMaterialInput.value = inputValues.profitPedestrianGateMaterial || Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
-                    profitPanelsMaterialInput.value = inputValues.profitPanelsMaterial || Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
-                    profitPostsMaterialInput.value = inputValues.profitPostsMaterial || Math.round(DEFAULT_PROFIT_POSTS_MATERIAL * 100);
-                    profitCapsBracketsMaterialInput.value = inputValues.profitCapsBracketsMaterial || Math.round(DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL * 100);
-                    profitPowderCoatingInput.value = inputValues.profitPowderCoating || Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
-                    profitGateMotorsInput.value = inputValues.profitGateMotors || Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
-                    profitGateMotorHardwareInput.value = inputValues.profitGateMotorHardware || Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
-
-                    installPostsFixedInput.value = inputValues.installPostsFixed || DEFAULT_INSTALL_POSTS_FIXED;
-                    installSlidingGateFixedInput.value = inputValues.installSlidingGateFixed || DEFAULT_INSTALL_SLIDING_GATE_FIXED;
-                    installPedestrianGateFixedInput.value = inputValues.installPedestrianGateFixed || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
-                    installPanelsPerMeterInput.value = inputValues.installPanelsPerMeter || DEFAULT_INSTALL_PANELS_PER_METER;
-                    installMotorFixedInput.value = inputValues.installMotorFixed || DEFAULT_INSTALL_MOTOR_FIXED;
-
-                    fabricationCostPerDayInput.value = inputValues.fabricationCostPerDay || DEFAULT_FABRICATION_COST_PER_DAY;
-                    fabricationDaysPerJobInput.value = inputValues.fabricationDaysPerJob || DEFAULT_FABRICATION_DAYS_PER_JOB;
-
-                    // Populate dynamic material costs
-                    if (inputValues.materialCosts) {
-                        for (const key in inputValues.materialCosts) {
-                            const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
-                            const inputElement = document.getElementById(inputId);
-                            if (inputElement) {
-                                inputElement.value = inputValues.materialCosts[key];
-                            }
-                        }
-                    }
-
-                    // Ensure all necessary UI updates triggered by toggles happen after setting values
-                    toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
-                    toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
-                    toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
-                    ziggyRemoteQtyInput.disabled = !ziggyRemoteCheckbox.checked;
-
-                    // Trigger a recalculation to update the displayed results based on loaded inputs
-                    quoteForm.dispatchEvent(new Event('submit'));
-                    closeLoadQuotesModal(); // Close the modal after loading
-
-                    showMessageBox("Quote Loaded", `Quote "${selectedQuoteData.name}" loaded successfully.`);
-                } else {
-                    showMessageBox("Error", "Quote data not found or is incomplete.");
-                }
-            } catch (e) {
-                console.error("Error loading document:", e);
-                showMessageBox("Error Loading", `Failed to load quote: ${e.message}`);
-            }
-        };
-
-        window.showDeleteConfirmModal = function(id, name) {
-            quoteToDelete = { id: id, name: name };
-            document.getElementById('deleteConfirmMessage').textContent = `Are you sure you want to delete the quote "${name}"? This action cannot be undone.`;
-            document.getElementById('deleteConfirmModal').style.display = 'block';
-            overlay.style.display = 'block';
-        };
-
-        window.confirmDelete = async function() {
-            closeDeleteConfirmModal();
-            if (!quoteToDelete || !db || !userId) {
-                showMessageBox("Error", "Could not process delete request. Please try again.");
-                return;
-            }
-
-            const { id, name } = quoteToDelete;
-            try {
-                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/quotes`, id));
-                showMessageBox("Quote Deleted", `Quote "${name}" has been deleted successfully.`);
-                loadSavedQuotes(); // Refresh the list
-            } catch (e) {
-                    // Check if error is due to insufficient permissions (e.g., trying to delete someone else's quote, though security rules prevent this)
-                    if (e.code === 'permission-denied') {
-                        showMessageBox("Permission Denied", "You do not have permission to delete this quote.");
-                    } else {
-                        showMessageBox("Error Deleting", `Failed to delete quote: ${e.message}`);
-                    }
-                console.error("Error deleting document: ", e);
-            } finally {
-                quoteToDelete = null; // Clear the temporary storage
-            }
-        };
-
-        window.closeDeleteConfirmModal = function() {
-            document.getElementById('deleteConfirmModal').style.display = 'none';
-            // Only hide overlay if no other modals are open
-            if (messageBox.style.display === 'none' && loadQuotesModal.style.display === 'none') {
-                overlay.style.display = 'none';
-            }
-            quoteToDelete = null; // Clear on close
-        };
-
-
-    </script>
     <style>
         /* Custom font for a cleaner look */
         body {
@@ -510,6 +156,19 @@
             background-color: #3182ce; /* Darker blue on hover */
             transform: translateY(-1px); /* Slight lift effect */
         }
+        .modal button.bg-red-600 {
+            background-color: #dc2626; /* red-600 */
+        }
+        .modal button.bg-red-600:hover {
+            background-color: #b91c1c; /* red-700 */
+        }
+        .modal button.bg-gray-500 {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .modal button.bg-gray-500:hover {
+            background-color: #4b5563; /* gray-600 */
+        }
+
         .overlay {
             position: fixed;
             top: 0;
@@ -802,21 +461,53 @@
                 flex-shrink: 1; /* Allow buttons to shrink */
             }
         }
+
+        /* Styles for print only */
+        @media print {
+            body > *:not(.print-container) {
+                display: none !important;
+            }
+            .print-container {
+                display: block !important;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border-radius: 0;
+            }
+            /* Ensure the quote summary styles apply in print */
+            .professional-quote-summary {
+                margin-top: 0;
+                padding: 1.5rem; /* Adjust padding for print */
+                box-shadow: none;
+                border: none;
+            }
+            .professional-quote-summary h2 {
+                font-size: 1.8rem;
+                margin-bottom: 1rem;
+            }
+            .professional-quote-summary .quote-line-item {
+                font-size: 1rem;
+            }
+            .professional-quote-summary .final-total {
+                font-size: 1.5rem;
+                margin-top: 1rem;
+                padding-top: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Fencing Quote Calculator</h1>
 
-        <!-- User ID Display -->
-        <div class="mb-4 text-center text-sm text-gray-500">
-            Current User ID: <span id="currentUserIdDisplay" class="font-semibold text-gray-700">Loading...</span>
-        </div>
-
-        <!-- Error Message Display -->
-        <div id="errorMessage" class="error-message" style="display: none;"></div>
-
         <form id="quoteForm" class="space-y-6">
+            <!-- Customer Name Input -->
+            <div class="input-group">
+                <label for="customerName">Customer Name:</label>
+                <input type="text" id="customerName" name="customerName" class="mt-1 block w-full" placeholder="e.g., John Smith">
+            </div>
+
             <!-- Overall Boundary Length Input -->
             <div class="input-group">
                 <label for="overallBoundaryLength">Overall Boundary Length (mm):</label>
@@ -1099,17 +790,20 @@
                 </div>
             </div>
 
-            <!-- Action Buttons for Save/Load -->
+            <!-- Action Buttons for Save/Load/Print -->
             <div class="flex flex-col md:flex-row flex-stretch-height gap-4 mt-6">
                 <div class="input-group flex-grow">
                     <label for="quoteNameInput" class="sr-only">Quote Name (for saving)</label>
                     <input type="text" id="quoteNameInput" placeholder="Enter a name for your quote" class="mt-1 block w-full py-3 px-4">
                 </div>
-                <button type="button" id="saveQuoteBtn" onclick="saveQuoteToFirestore()" class="w-full md:w-auto bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition duration-200 ease-in-out shadow-md" disabled>
+                <button type="button" id="saveQuoteBtn" onclick="saveQuote()" class="w-full md:w-auto bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition duration-200 ease-in-out shadow-md">
                     Save Quote
                 </button>
-                <button type="button" id="loadQuotesBtn" onclick="showLoadQuotesModal()" class="w-full md:w-auto bg-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-purple-700 transition duration-200 ease-in-out shadow-md" disabled>
+                <button type="button" id="loadQuotesBtn" onclick="showLoadQuotesModal()" class="w-full md:w-auto bg-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-purple-700 transition duration-200 ease-in-out shadow-md">
                     Load Quotes
+                </button>
+                <button type="button" id="printQuoteBtn" onclick="printQuoteSummary()" class="w-full md:w-auto bg-gray-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-gray-700 transition duration-200 ease-in-out shadow-md">
+                    Print Quote
                 </button>
             </div>
 
@@ -1273,6 +967,7 @@
             <!-- Professional Quote Summary Section -->
             <div id="professionalQuoteSummary" class="professional-quote-summary hidden">
                 <h2 class="text-center mb-6">Quote Summary</h2>
+                <div id="customerNameDisplay" class="text-center text-lg font-semibold text-gray-700 mb-4"></div> <!-- Added for customer name -->
                 <div id="quoteSummaryItems" class="space-y-3">
                     <!-- Quote line items will be inserted here -->
                 </div>
@@ -1295,7 +990,7 @@
     <div id="loadQuotesModal" class="modal">
         <h3>Your Saved Quotes</h3>
         <div id="savedQuotesList" class="my-4 text-left">
-            <p class="text-gray-500 text-center">No quotes loaded yet.</p>
+            <p class="text-gray-500 text-center">No quotes saved locally.</p>
         </div>
         <button onclick="closeLoadQuotesModal()">Close</button>
     </div>
@@ -1386,11 +1081,13 @@
         // Constants for panel optimization
         const IDEAL_PANEL_2_4M = 2400; // 2.4 meters
 
-        // Local Storage Key for settings (separate from quotes)
-        const STORAGE_KEY = 'fencingQuoteSettings';
+        // Local Storage Keys
+        const SETTINGS_STORAGE_KEY = 'fencingQuoteSettings';
+        const QUOTES_STORAGE_KEY = 'fencingSavedQuotes';
 
 
         // Get references to DOM elements
+        const customerNameInput = document.getElementById('customerName'); // New customer name input
         const overallBoundaryLengthInput = document.getElementById('overallBoundaryLength');
         const fenceHeightInput = document.getElementById('fenceHeight'); // Global fence height input
         const postSizeSelect = document.getElementById('postSize'); // Renamed for clarity
@@ -1421,7 +1118,6 @@
         const resultsDiv = document.getElementById('results');
         const materialDetailsDiv = document.getElementById('materialDetails');
         const totalCostSpan = document.getElementById('totalCost');
-        const errorMessageDiv = document.getElementById('errorMessage');
 
         const postsSection = document.getElementById('postsSection');
         const postsSectionTitle = document.getElementById('postsSectionTitle');
@@ -1512,6 +1208,7 @@
 
         // Professional Quote Summary elements
         const professionalQuoteSummaryDiv = document.getElementById('professionalQuoteSummary');
+        const customerNameDisplay = document.getElementById('customerNameDisplay'); // New element for customer name in summary
         const quoteSummaryItemsDiv = document.getElementById('quoteSummaryItems');
         const finalProfessionalQuoteTotalSpan = document.getElementById('finalProfessionalQuoteTotal');
 
@@ -1525,6 +1222,296 @@
         const messageBoxContent = document.getElementById('messageBoxContent');
         const overlay = document.getElementById('overlay');
         const loadQuotesModal = document.getElementById('loadQuotesModal'); // New modal for loading quotes
+
+        let quoteToDeleteId = null; // Temporarily store the ID of the quote to delete
+
+        // --- Local Storage Quote Management ---
+
+        /**
+         * Generates a simple unique ID for local storage quotes.
+         * @returns {string} A unique ID.
+         */
+        function generateUniqueId() {
+            return 'quote_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        }
+
+        /**
+         * Saves the current quote to localStorage.
+         */
+        window.saveQuote = function() {
+            console.log("Save Quote button clicked.");
+
+            const quoteNameInput = document.getElementById('quoteNameInput');
+            const quoteName = quoteNameInput.value.trim();
+            if (!quoteName) {
+                showMessageBox("Input Required", "Please enter a name for your quote before saving.");
+                return;
+            }
+
+            // Get current input values to save them for loading later
+            const inputValues = {
+                customerName: customerNameInput.value, // Save customer name
+                overallBoundaryLength: overallBoundaryLengthInput.value,
+                fenceHeight: fenceHeightInput.value,
+                postSize: postSizeSelect.value,
+                slidingGate: slidingGateYes.checked,
+                slidingGateLength: slidingGateLengthInput.value,
+                gateMotor: gateMotorYes.checked,
+                motorType: motorTypeSelect.value,
+                batteryBackup: batteryBackupCheckbox.checked,
+                antenna: antennaCheckbox.checked,
+                ziggyRemote: ziggyRemoteCheckbox.checked,
+                ziggyRemoteQty: ziggyRemoteQtyInput.value,
+                pedestrianGate: pedestrianGateYes.checked,
+                pedestrianGateWidth: pedestrianGateWidthInput.value,
+                hingeType: hingeTypeSelect.value,
+                latchType: latchTypeSelect.value,
+                profitSlidingGateMaterial: profitSlidingGateMaterialInput.value,
+                profitPedestrianGateMaterial: profitPedestrianGateMaterialInput.value,
+                profitPanelsMaterial: profitPanelsMaterialInput.value,
+                profitPostsMaterial: profitPostsMaterialInput.value,
+                profitCapsBracketsMaterial: profitCapsBracketsMaterialInput.value,
+                profitPowderCoating: profitPowderCoatingInput.value,
+                profitGateMotors: profitGateMotorsInput.value,
+                profitGateMotorHardware: profitGateMotorHardwareInput.value,
+                installPostsFixed: installPostsFixedInput.value,
+                installSlidingGateFixed: installSlidingGateFixedInput.value,
+                installPedestrianGateFixed: installPedestrianGateFixedInput.value,
+                installPanelsPerMeter: installPanelsPerMeterInput.value,
+                installMotorFixed: installMotorFixedInput.value,
+                fabricationCostPerDay: fabricationCostPerDayInput.value,
+                fabricationDaysPerJob: fabricationDaysPerJobInput.value,
+                materialCosts: {} // Capture current material costs
+            };
+
+            for (const key in defaultMaterialPriceList) {
+                const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                const inputElement = document.getElementById(inputId);
+                if (inputElement) {
+                    inputValues.materialCosts[key] = inputElement.value;
+                }
+            }
+
+            const newQuote = {
+                id: generateUniqueId(),
+                name: quoteName,
+                timestamp: Date.now(),
+                inputValues: inputValues,
+                calculatedTotal: document.getElementById('totalCost').textContent,
+                quoteSummaryHtml: document.getElementById('quoteSummaryItems').innerHTML
+            };
+
+            let savedQuotes = JSON.parse(localStorage.getItem(QUOTES_STORAGE_KEY) || '[]');
+            savedQuotes.push(newQuote);
+
+            try {
+                localStorage.setItem(QUOTES_STORAGE_KEY, JSON.stringify(savedQuotes));
+                showMessageBox("Quote Saved!", `Your quote "${quoteName}" has been saved locally.`);
+                quoteNameInput.value = ''; // Clear the input after saving
+                loadSavedQuotes(); // Refresh the list of saved quotes in the modal
+            } catch (e) {
+                console.error("Error saving quote to local storage:", e);
+                showMessageBox("Error Saving", `Failed to save quote locally: ${e.message}. Local storage might be full or disabled.`);
+            }
+        };
+
+        /**
+         * Loads saved quotes from localStorage and displays them in the modal.
+         */
+        window.loadSavedQuotes = function() {
+            console.log("Loading saved quotes from local storage...");
+            const savedQuotesList = document.getElementById('savedQuotesList');
+            savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">Loading quotes...</p>';
+
+            try {
+                const savedQuotes = JSON.parse(localStorage.getItem(QUOTES_STORAGE_KEY) || '[]');
+                savedQuotesList.innerHTML = ''; // Clear loading indicator
+
+                if (savedQuotes.length === 0) {
+                    savedQuotesList.innerHTML = '<p class="text-gray-500 text-center">No saved quotes found locally.</p>';
+                    return;
+                }
+
+                savedQuotes.forEach((quote) => {
+                    const timestamp = new Date(quote.timestamp).toLocaleString();
+                    const listItem = document.createElement('div');
+                    listItem.className = 'flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-4 rounded-lg shadow-md mb-3 border border-gray-200';
+                    listItem.innerHTML = `
+                        <div class="flex-grow mb-2 md:mb-0">
+                            <h4 class="font-bold text-lg text-gray-800">${quote.name}</h4>
+                            <p class="text-sm text-gray-500 mt-1">Saved: ${timestamp}</p>
+                        </div>
+                        <div class="flex space-x-2 flex-shrink-0 w-full md:w-auto justify-end md:justify-start">
+                            <button onclick="displayLoadedQuote('${quote.id}')" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors shadow flex-grow md:flex-grow-0">Load</button>
+                            <button onclick="showDeleteConfirmModal('${quote.id}', '${quote.name}')" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors shadow flex-grow md:flex-grow-0">Delete</button>
+                        </div>
+                    `;
+                    savedQuotesList.appendChild(listItem);
+                });
+            } catch (e) {
+                console.error("Error loading quotes from local storage: ", e);
+                savedQuotesList.innerHTML = `<p class="text-red-500 text-center">Error loading quotes: ${e.message}</p>`;
+            }
+        };
+
+        /**
+         * Displays a loaded quote's details in the main form.
+         * @param {string} quoteId - The ID of the quote to load.
+         */
+        window.displayLoadedQuote = function(quoteId) {
+            console.log("Displaying loaded quote:", quoteId);
+            try {
+                const savedQuotes = JSON.parse(localStorage.getItem(QUOTES_STORAGE_KEY) || '[]');
+                const selectedQuoteData = savedQuotes.find(quote => quote.id === quoteId);
+
+                if (selectedQuoteData && selectedQuoteData.inputValues) {
+                    const inputValues = selectedQuoteData.inputValues;
+
+                    // Populate customer name
+                    customerNameInput.value = inputValues.customerName || '';
+
+                    // Populate form fields with saved input values
+                    overallBoundaryLengthInput.value = inputValues.overallBoundaryLength || '';
+                    fenceHeightInput.value = inputValues.fenceHeight || '';
+                    postSizeSelect.value = inputValues.postSize || '65';
+
+                    if (inputValues.slidingGate) {
+                        slidingGateYes.checked = true;
+                    } else {
+                        slidingGateNo.checked = true;
+                    }
+                    toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
+                    slidingGateLengthInput.value = inputValues.slidingGateLength || '';
+
+                    if (inputValues.gateMotor) {
+                        gateMotorYes.checked = true;
+                    } else {
+                        gateMotorNo.checked = true;
+                    }
+                    toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
+                    motorTypeSelect.value = inputValues.motorType || '';
+                    batteryBackupCheckbox.checked = inputValues.batteryBackup || false;
+                    antennaCheckbox.checked = inputValues.antenna || false;
+                    ziggyRemoteCheckbox.checked = inputValues.ziggyRemote || false;
+                    // Ensure the ziggyRemoteQty input is enabled/disabled correctly based on loaded state
+                    ziggyRemoteQtyInput.disabled = !ziggyRemoteCheckbox.checked;
+                    ziggyRemoteQtyInput.value = inputValues.ziggyRemoteQty || '1';
+
+
+                    if (inputValues.pedestrianGate) {
+                        pedestrianGateYes.checked = true;
+                    } else {
+                        pedestrianGateNo.checked = true;
+                    }
+                    toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
+                    pedestrianGateWidthInput.value = inputValues.pedestrianGateWidth || '';
+                    hingeTypeSelect.value = inputValues.hingeType || 'Adjustable Hinges';
+                    latchTypeSelect.value = inputValues.latchType || 'D latch';
+
+                    // Populate advanced settings
+                    profitSlidingGateMaterialInput.value = inputValues.profitSlidingGateMaterial || Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
+                    profitPedestrianGateMaterialInput.value = inputValues.profitPedestrianGateMaterial || Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
+                    profitPanelsMaterialInput.value = inputValues.profitPanelsMaterial || Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
+                    profitPostsMaterialInput.value = inputValues.profitPostsMaterial || Math.round(DEFAULT_PROFIT_POSTS_MATERIAL * 100);
+                    profitCapsBracketsMaterialInput.value = inputValues.profitCapsBracketsMaterial || Math.round(DEFAULT_PROFIT_CAPS_BRACKETS_MATERIAL * 100);
+                    profitPowderCoatingInput.value = inputValues.profitPowderCoating || Math.round(DEFAULT_PROFIT_POWDER_COATING * 100);
+                    profitGateMotorsInput.value = inputValues.profitGateMotors || Math.round(DEFAULT_PROFIT_GATE_MOTORS * 100);
+                    profitGateMotorHardwareInput.value = inputValues.profitGateMotorHardware || Math.round(DEFAULT_PROFIT_GATE_MOTOR_HARDWARE * 100);
+
+                    installPostsFixedInput.value = inputValues.installPostsFixed || DEFAULT_INSTALL_POSTS_FIXED;
+                    installSlidingGateFixedInput.value = inputValues.installSlidingGateFixed || DEFAULT_INSTALL_SLIDING_GATE_FIXED;
+                    installPedestrianGateFixedInput.value = inputValues.installPedestrianGateFixed || DEFAULT_INSTALL_PEDESTRIAN_GATE_FIXED;
+                    installPanelsPerMeterInput.value = inputValues.installPanelsPerMeter || DEFAULT_INSTALL_PANELS_PER_METER;
+                    installMotorFixedInput.value = inputValues.installMotorFixed || DEFAULT_INSTALL_MOTOR_FIXED;
+
+                    fabricationCostPerDayInput.value = inputValues.fabricationCostPerDay || DEFAULT_FABRICATION_COST_PER_DAY;
+                    fabricationDaysPerJobInput.value = inputValues.fabricationDaysPerJob || DEFAULT_FABRICATION_DAYS_PER_JOB;
+
+                    // Populate dynamic material costs
+                    if (inputValues.materialCosts) {
+                        for (const key in inputValues.materialCosts) {
+                            const inputId = `material-${key.replace(/\s+/g, '-')}-cost`;
+                            const inputElement = document.getElementById(inputId);
+                            if (inputElement) {
+                                inputElement.value = inputValues.materialCosts[key];
+                            }
+                        }
+                    }
+
+                    // Ensure all necessary UI updates triggered by toggles happen after setting values
+                    toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
+                    toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
+                    toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
+                    ziggyRemoteQtyInput.disabled = !ziggyRemoteCheckbox.checked;
+
+                    // Trigger a recalculation to update the displayed results based on loaded inputs
+                    quoteForm.dispatchEvent(new Event('submit'));
+                    closeLoadQuotesModal(); // Close the modal after loading
+
+                    showMessageBox("Quote Loaded", `Quote "${selectedQuoteData.name}" loaded successfully.`);
+                } else {
+                    showMessageBox("Error", "Quote data not found or is incomplete.");
+                }
+            } catch (e) {
+                console.error("Error loading quote:", e);
+                showMessageBox("Error Loading", `Failed to load quote: ${e.message}`);
+            }
+        };
+
+        /**
+         * Shows the delete confirmation modal.
+         * @param {string} id - The ID of the quote to delete.
+         * @param {string} name - The name of the quote to delete.
+         */
+        window.showDeleteConfirmModal = function(id, name) {
+            quoteToDeleteId = id;
+            document.getElementById('deleteConfirmMessage').textContent = `Are you sure you want to delete the quote "${name}"? This action cannot be undone.`;
+            document.getElementById('deleteConfirmModal').style.display = 'block';
+            overlay.style.display = 'block';
+        };
+
+        /**
+         * Confirms and performs the delete action.
+         */
+        window.confirmDelete = function() {
+            closeDeleteConfirmModal();
+            if (!quoteToDeleteId) {
+                showMessageBox("Error", "No quote selected for deletion.");
+                return;
+            }
+
+            try {
+                let savedQuotes = JSON.parse(localStorage.getItem(QUOTES_STORAGE_KEY) || '[]');
+                const originalLength = savedQuotes.length;
+                savedQuotes = savedQuotes.filter(quote => quote.id !== quoteToDeleteId);
+
+                if (savedQuotes.length < originalLength) {
+                    localStorage.setItem(QUOTES_STORAGE_KEY, JSON.stringify(savedQuotes));
+                    showMessageBox("Quote Deleted", "Quote has been deleted successfully.");
+                    loadSavedQuotes(); // Refresh the list
+                } else {
+                    showMessageBox("Not Found", "Quote not found in local storage.");
+                }
+            } catch (e) {
+                console.error("Error deleting quote from local storage:", e);
+                showMessageBox("Error Deleting", `Failed to delete quote: ${e.message}`);
+            } finally {
+                quoteToDeleteId = null; // Clear the temporary storage
+            }
+        };
+
+        /**
+         * Closes the delete confirmation modal.
+         */
+        window.closeDeleteConfirmModal = function() {
+            document.getElementById('deleteConfirmModal').style.display = 'none';
+            if (messageBox.style.display === 'none' && loadQuotesModal.style.display === 'none') {
+                overlay.style.display = 'none';
+            }
+            quoteToDeleteId = null; // Clear on close
+        };
+
+        // --- End Local Storage Quote Management ---
 
 
         /**
@@ -1545,7 +1532,7 @@
         window.closeMessageBox = function() { // Made global
             messageBox.style.display = 'none';
             // Only hide overlay if no other modals are open
-            if (loadQuotesModal.style.display === 'none' && deleteConfirmModal.style.display === 'none') {
+            if (loadQuotesModal.style.display === 'none' && document.getElementById('deleteConfirmModal').style.display === 'none') {
                  overlay.style.display = 'none';
             }
         }
@@ -1565,21 +1552,58 @@
         window.closeLoadQuotesModal = function() { // Made global
             loadQuotesModal.style.display = 'none';
              // Only hide overlay if no other modals are open
-            if (messageBox.style.display === 'none' && deleteConfirmModal.style.display === 'none') {
+            if (messageBox.style.display === 'none' && document.getElementById('deleteConfirmModal').style.display === 'none') {
                 overlay.style.display = 'none';
             }
         }
 
         /**
-         * Closes the Delete Confirmation modal.
+         * Prints the professional quote summary.
          */
-        window.closeDeleteConfirmModal = function() {
-            document.getElementById('deleteConfirmModal').style.display = 'none';
-            // Only hide overlay if no other modals are open
-            if (messageBox.style.display === 'none' && loadQuotesModal.style.display === 'none') {
-                overlay.style.display = 'none';
+        window.printQuoteSummary = function() {
+            const customerName = customerNameInput.value.trim();
+            const quoteSummaryElement = document.getElementById('professionalQuoteSummary');
+            if (quoteSummaryElement.classList.contains('hidden')) {
+                showMessageBox("No Quote Summary", "Please calculate a quote first to generate a summary for printing.");
+                return;
             }
-            quoteToDelete = null; // Clear on close
+
+            // Create a temporary print window
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write('<html><head><title>Fencing Quote</title>');
+            // Include Tailwind CSS for styling in the print preview
+            printWindow.document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
+            // Include the custom print styles from the main page
+            printWindow.document.write('<style>');
+            printWindow.document.write(document.querySelector('style').innerHTML); // Copy all styles
+            printWindow.document.write('</style>');
+            printWindow.document.write('</head><body>');
+
+            // Create a div to hold the content for printing and apply the print-container class
+            printWindow.document.write('<div class="print-container">');
+
+            // Add the customer name to the printed summary
+            if (customerName) {
+                printWindow.document.write(`<h2 class="text-center mb-6">Quote for ${customerName}</h2>`);
+            } else {
+                 printWindow.document.write(`<h2 class="text-center mb-6">Quote Summary</h2>`);
+            }
+
+            // Copy the current content of the quote summary items and total
+            printWindow.document.write(quoteSummaryItemsDiv.innerHTML);
+            printWindow.document.write('<div class="final-total">Quote Total: ' + finalProfessionalQuoteTotalSpan.outerHTML + '</div>');
+
+            printWindow.document.write('</div>'); // Close print-container
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+
+            // Wait for content to render, then print
+            printWindow.onload = function() {
+                printWindow.focus();
+                printWindow.print();
+                // Close the window after printing (optional, can be annoying)
+                // printWindow.close();
+            };
         };
 
 
@@ -1964,10 +1988,9 @@
 
             // Hide previous results and errors and clear content
             resultsDiv.classList.add('hidden');
-            errorMessageDiv.style.display = 'none'; // Ensure error message is hidden
-            errorMessageDiv.textContent = '';
             professionalQuoteSummaryDiv.classList.add('hidden'); // Hide professional summary
             quoteSummaryItemsDiv.innerHTML = ''; // Clear professional summary items
+            customerNameDisplay.textContent = ''; // Clear customer name display
 
 
             // Get all collapsible content areas and hide them (collapse)
@@ -2140,7 +2163,8 @@
                             errors.push('Price information for Gear rack not found.');
                         }
                     } else {
-                        errors.push("Sliding Gate Length is required for Gear rack calculation when a motor is selected.");
+                        // Removed the error, as sliding gate is optional
+                        // errors.push("Sliding Gate Length is required for Gear rack calculation when a motor is selected.");
                     }
 
                     // Battery backup
@@ -2265,8 +2289,7 @@
 
             // Display errors if any validation failed before proceeding with final calculations
             if (errors.length > 0) {
-                errorMessageDiv.style.display = 'block';
-                errorMessageDiv.innerHTML = errors.map(err => `<div>- ${err}</div>`).join('');
+                showMessageBox("Input Error", errors.map(err => `• ${err}`).join('<br/>')); // Use message box for errors
                 return;
             }
 
@@ -2305,8 +2328,7 @@
 
                     if (postsPerStockLength <= 0) {
                         errors.push(`Post length (${quoteSections.posts.length}mm) is too long to be cut from a single stock length (${postInfo.unitLength}mm). Adjust fence height or post length settings.`);
-                        errorMessageDiv.style.display = 'block';
-                        errorMessageDiv.innerHTML = errors.map(err => `<div>- ${err}</div>`).join('');
+                        showMessageBox("Input Error", errors.map(err => `• ${err}`).join('<br/>')); // Use message box for errors
                         return; // Stop calculation if posts cannot be cut
                     }
 
@@ -2973,6 +2995,15 @@
                 // --- Generate Professional Quote Summary ---
                 let professionalQuoteHtml = '';
 
+                // Set customer name in summary
+                const customerName = customerNameInput.value.trim();
+                if (customerName) {
+                    customerNameDisplay.textContent = `Customer: ${customerName}`;
+                } else {
+                    customerNameDisplay.textContent = ''; // Clear if no name
+                }
+
+
                 // Posts Line Item
                 if (totalPostsCost > 0) {
                     professionalQuoteHtml += formatProfessionalQuoteLineItem(
@@ -3053,6 +3084,7 @@
          */
         function saveSettings() {
             const settings = {
+                customerName: customerNameInput.value, // Save customer name
                 profitSlidingGateMaterial: profitSlidingGateMaterialInput.value,
                 profitPedestrianGateMaterial: profitPedestrianGateMaterialInput.value,
                 profitPanelsMaterial: profitPanelsMaterialInput.value,
@@ -3084,10 +3116,10 @@
             }
 
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
                 console.log("Settings saved to localStorage.");
             } catch (e) {
-                console.error("Error saving to localStorage:", e);
+                console.error("Error saving settings to localStorage:", e);
                 // No need for a message box here, as it might appear too often on subtle storage issues.
             }
         }
@@ -3097,9 +3129,12 @@
          */
         function loadSettings() {
             try {
-                const savedSettings = localStorage.getItem(STORAGE_KEY);
+                const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
                 if (savedSettings) {
                     const settings = JSON.parse(savedSettings);
+
+                    // Populate customer name
+                    customerNameInput.value = settings.customerName || '';
 
                     // Populate profit margins
                     profitSlidingGateMaterialInput.value = settings.profitSlidingGateMaterial || Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
@@ -3177,6 +3212,8 @@
             // Now attempt to load saved settings. If unsuccessful, fall back to default values.
             if (!loadSettings()) {
                 // Only set defaults if loadSettings() returns false (i.e., no saved settings or error)
+                customerNameInput.value = ''; // Set default for customer name
+
                 profitSlidingGateMaterialInput.value = Math.round(DEFAULT_PROFIT_SLIDING_GATE_MATERIAL * 100);
                 profitPedestrianGateMaterialInput.value = Math.round(DEFAULT_PROFIT_PEDESTRIAN_GATE_MATERIAL * 100);
                 profitPanelsMaterialInput.value = Math.round(DEFAULT_PROFIT_PANELS_MATERIAL * 100);
@@ -3204,16 +3241,22 @@
                 input.addEventListener('input', saveSettings);
                 input.addEventListener('change', saveSettings); // For select elements and checkboxes
             });
+            // Also add a listener for the customer name input
+            customerNameInput.addEventListener('input', saveSettings);
         }
 
 
         // Initialize visibility on load and update panel info
-        toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
-        toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
-        toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
-        updateCalculatedPostLength(); // Call once on load to set initial post length display (even if hidden, for internal value)
-        updateFencePanelInfo(); // Call once on load to show initial panel info
-        initializeAdvancedSettings(); // Initialize advanced settings inputs and load saved data
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleInputs(slidingGateYes, slidingGateNo, slidingGateInputs);
+            toggleInputs(pedestrianGateYes, pedestrianGateNo, pedestrianGateInputs);
+            toggleInputs(gateMotorYes, gateMotorNo, motorInputs);
+            updateCalculatedPostLength(); // Call once on load to set initial post length display (even if hidden, for internal value)
+            updateFencePanelInfo(); // Call once on load to show initial panel info
+            initializeAdvancedSettings(); // Initialize advanced settings inputs and load saved data
+            loadSavedQuotes(); // Load quotes from local storage on app start
+        });
+
 
         // Add event listeners for new toggle buttons for results sections
         document.querySelectorAll('#results .toggle-btn').forEach(button => {
